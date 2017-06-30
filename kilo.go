@@ -7,12 +7,11 @@ import (
 	"io"
 	"log"
 	"os"
+	"screen"
 	"strings"
-	"syscall"
 	"time"
 	"terminal"
 	"unicode"
-	"unsafe"
 )
 
 /*** defines ***/
@@ -87,13 +86,6 @@ type editorConfig struct {
 	statusmsg_time time.Time
     syntax      *editorSyntax
 	terminal  *terminal.Terminal
-}
-
-type WinSize struct {
-	Row    uint16
-	Col    uint16
-	Xpixel uint16
-	Ypixel uint16
 }
 
 var E editorConfig
@@ -193,51 +185,6 @@ func editorReadKey() int {
 		return '\x1b'
 	}
 	return int(buffer[0])
-}
-
-func getCursorPosition(rows *int, cols *int) int {
-	io.WriteString(os.Stdout, "\x1b[6n")
-	var buffer [1]byte
-	var buf []byte
-	var cc int
-	for cc, _ = os.Stdin.Read(buffer[:]); cc == 1; cc, _ = os.Stdin.Read(buffer[:]) {
-		if buffer[0] == 'R' {
-			break
-		}
-		buf = append(buf, buffer[0])
-	}
-	if string(buf[0:2]) != "\x1b[" {
-		log.Printf("Failed to read rows;cols from tty\n")
-		return -1
-	}
-	if n, e := fmt.Sscanf(string(buf[2:]), "%d;%d", rows, cols); n != 2 || e != nil {
-		if e != nil {
-			log.Printf("getCursorPosition: fmt.Sscanf() failed: %s\n", e)
-		}
-		if n != 2 {
-			log.Printf("getCursorPosition: got %d items, wanted 2\n", n)
-		}
-		return -1
-	}
-	return 0
-}
-
-func getWindowSize(rows *int, cols *int) int {
-	var w WinSize
-	_, _, err := syscall.Syscall(syscall.SYS_IOCTL,
-		os.Stdout.Fd(),
-		syscall.TIOCGWINSZ,
-		uintptr(unsafe.Pointer(&w)),
-	)
-	if err != 0 { // type syscall.Errno
-		io.WriteString(os.Stdout, "\x1b[999C\x1b[999B")
-		return getCursorPosition(rows, cols)
-	} else {
-		*rows = int(w.Row)
-		*cols = int(w.Col)
-		return 0
-	}
-	return -1
 }
 
 /*** syntax hightlighting ***/
@@ -975,17 +922,21 @@ func editorSetStatusMessage(args...interface{}) {
 
 func initEditor() {
 	// Initialization a la C not necessary.
-	if getWindowSize(&E.screenRows, &E.screenCols) == -1 {
+	var e bool
+	if E.screenRows, E.screenCols, e = screen.GetWindowSize();  !e {
 		die(fmt.Errorf("couldn't get screen size"))
 	}
 	E.screenRows -= 2
 }
 
 func main() {
+
 	E.terminal = new(terminal.Terminal)
 	E.terminal.EnableRawMode()
 	defer E.terminal.DisableRawMode()
+
 	initEditor()
+
 	if len(os.Args) > 1 {
 		editorOpen(os.Args[1])
 	}
