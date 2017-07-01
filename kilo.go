@@ -90,7 +90,7 @@ var HLDB []editorSyntax = []editorSyntax{
 }
 
 func die(err error) {
-	E.tty.DisableRawMode()
+	ttyDev.DisableRawMode()
 	io.WriteString(os.Stdout, "\x1b[2J")
 	io.WriteString(os.Stdout, "\x1b[H")
 	log.Fatal(err)
@@ -300,6 +300,7 @@ func editorUpdateRow(row *row.Row) {
 		}
 	}
 	row.Rsize = idx
+	row.Render = row.Render[0:idx]
 	editorUpdateSyntax(row)
 }
 
@@ -645,7 +646,7 @@ func editorProcessKeypress() {
 		}
 		io.WriteString(os.Stdout, "\x1b[2J")
 		io.WriteString(os.Stdout, "\x1b[H")
-		E.tty.DisableRawMode()
+		ttyDev.DisableRawMode()
 		os.Exit(0)
 	case keyboard.CTRL_S:
 		editorSave()
@@ -842,11 +843,13 @@ func initEditor() {
 	E.screenRows -= 2
 }
 
+var ttyDev *tty.Tty
+
 func main() {
 
-	E.tty = new(tty.Tty)
-	E.tty.EnableRawMode()
-	defer E.tty.DisableRawMode()
+	ttyDev = new(tty.Tty)
+	ttyDev.EnableRawMode()
+	defer ttyDev.DisableRawMode()
 
 	initEditor()
 
