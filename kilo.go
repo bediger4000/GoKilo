@@ -8,6 +8,7 @@ import (
 	"keyboard"
 	"log"
 	"os"
+	"row"
 	"screen"
 	"strings"
 	"time"
@@ -49,16 +50,6 @@ type editorSyntax struct {
 	flags     int
 }
 
-type erow struct {
-	idx    int
-	size   int
-	rsize  int
-	chars  []byte
-	render []byte
-	hl     []byte
-	hlOpenComment bool
-}
-
 type editorConfig struct {
 	cx          int
 	cy          int
@@ -68,7 +59,7 @@ type editorConfig struct {
 	screenRows  int
 	screenCols  int
 	numRows     int
-	rows        []erow
+	rows        []row.Row
 	dirty       bool
 	filename    string
 	statusmsg   string
@@ -98,8 +89,6 @@ var HLDB []editorSyntax = []editorSyntax{
 	},
 }
 
-/*** terminal ***/
-
 func die(err error) {
 	E.tty.DisableRawMode()
 	io.WriteString(os.Stdout, "\x1b[2J")
@@ -116,45 +105,45 @@ func isSeparator(c byte) bool {
 	return false
 }
 
-func editorUpdateSyntax(row *erow) {
-	row.hl = make([]byte, row.rsize)
+func editorUpdateSyntax(row *row.Row) {
+	row.Hl = make([]byte, row.Rsize)
 	if E.syntax == nil { return }
 	keywords := E.syntax.keywords[:]
 	scs := E.syntax.singleLineCommentStart
 	mcs := E.syntax.multiLineCommentStart
 	mce := E.syntax.multiLineCommentEnd
 	prevSep   := true
-	inComment := row.idx > 0 && E.rows[row.idx-1].hlOpenComment
+	inComment := row.Idx > 0 && E.rows[row.Idx-1].HlOpenComment
 	var inString byte = 0
 	var skip = 0
-	for i, c := range row.render {
+	for i, c := range row.Render {
 		if skip > 0 {
 			skip--
 			continue
 		}
 		if inString == 0 && len(scs) > 0 && !inComment {
-			if bytes.HasPrefix(row.render[i:], scs) {
-				for j := i; j < row.rsize; j++ {
-					row.hl[j] = HL_COMMENT
+			if bytes.HasPrefix(row.Render[i:], scs) {
+				for j := i; j < row.Rsize; j++ {
+					row.Hl[j] = HL_COMMENT
 				}
 				break
 			}
 		}
 		if inString == 0 && len(mcs) > 0 && len(mce) > 0 {
 			if inComment {
-				row.hl[i] = HL_MLCOMMENT
-				if bytes.HasPrefix(row.render[i:], mce) {
+				row.Hl[i] = HL_MLCOMMENT
+				if bytes.HasPrefix(row.Render[i:], mce) {
 					for l := i; l < i + len(mce); l++ {
-						row.hl[l] = HL_MLCOMMENT
+						row.Hl[l] = HL_MLCOMMENT
 					}
 					skip = len(mce)
 					inComment = false
 					prevSep = true
 				}
 				continue
-			} else if bytes.HasPrefix(row.render[i:], mcs) {
+			} else if bytes.HasPrefix(row.Render[i:], mcs) {
 				for l := i; l < i + len(mcs); l++ {
-					row.hl[l] = HL_MLCOMMENT
+					row.Hl[l] = HL_MLCOMMENT
 				}
 				inComment = true
 				skip = len(mcs)
@@ -162,13 +151,13 @@ func editorUpdateSyntax(row *erow) {
 		}
 		var prevHl byte = HL_NORMAL
 		if i > 0 {
-			prevHl = row.hl[i - 1]
+			prevHl = row.Hl[i - 1]
 		}
 		if (E.syntax.flags & HL_HIGHLIGHT_STRINGS) == HL_HIGHLIGHT_STRINGS {
 			if inString != 0 {
-				row.hl[i] = HL_STRING
-				if c == '\\' && i + 1 < row.rsize {
-					row.hl[i+1] = HL_STRING
+				row.Hl[i] = HL_STRING
+				if c == '\\' && i + 1 < row.Rsize {
+					row.Hl[i+1] = HL_STRING
 					skip = 1
 					continue
 				}
@@ -178,7 +167,7 @@ func editorUpdateSyntax(row *erow) {
 			} else {
 				if c == '"' || c == '\'' {
 					inString = c
-					row.hl[i] = HL_STRING
+					row.Hl[i] = HL_STRING
 					continue
 				}
 			}
@@ -187,7 +176,7 @@ func editorUpdateSyntax(row *erow) {
 			if unicode.IsDigit(rune(c)) &&
 				(prevSep || prevHl == HL_NUMBER) ||
 				(c == '.' && prevHl == HL_NUMBER) {
-				row.hl[i] = HL_NUMBER
+				row.Hl[i] = HL_NUMBER
 				prevSep = false
 				continue
 			}
@@ -204,11 +193,11 @@ func editorUpdateSyntax(row *erow) {
 					color = HL_KEYWORD2
 				}
 				klen := len(kw)
-				if bytes.HasPrefix(row.render[i:], kw) &&
-					(len(row.render[i:]) == klen ||
-					isSeparator(row.render[i+klen])) {
+				if bytes.HasPrefix(row.Render[i:], kw) &&
+					(len(row.Render[i:]) == klen ||
+					isSeparator(row.Render[i+klen])) {
 					for l := i; l < i+klen; l++ {
-						row.hl[l] = color
+						row.Hl[l] = color
 					}
 					skip = klen - 1
 					break
@@ -222,10 +211,10 @@ func editorUpdateSyntax(row *erow) {
 		prevSep = isSeparator(c)
 	}
 
-	changed := row.hlOpenComment != inComment
-	row.hlOpenComment = inComment
-	if changed && row.idx + 1 < E.numRows {
-		editorUpdateSyntax(&E.rows[row.idx + 1])
+	changed := row.HlOpenComment != inComment
+	row.HlOpenComment = inComment
+	if changed && row.Idx + 1 < E.numRows {
+		editorUpdateSyntax(&E.rows[row.Idx + 1])
 	}
 }
 
@@ -262,10 +251,10 @@ func editorSelectSyntaxHighlight() {
 
 /*** row operations ***/
 
-func editorRowCxToRx(row *erow, cx int) int {
+func editorRowCxToRx(row *row.Row, cx int) int {
 	rx := 0
-	for j := 0; j < row.size && j < cx; j++ {
-		if row.chars[j] == '\t' {
+	for j := 0; j < row.Size && j < cx; j++ {
+		if row.Chars[j] == '\t' {
 			rx += ((KILO_TAB_STOP - 1) - (rx % KILO_TAB_STOP))
 		}
 		rx++
@@ -273,11 +262,11 @@ func editorRowCxToRx(row *erow, cx int) int {
 	return rx
 }
 
-func editorRowRxToCx(row *erow, rx int) int {
+func editorRowRxToCx(row *row.Row, rx int) int {
 	curRx := 0
 	var cx int
-	for cx = 0; cx < row.size; cx++ {
-		if row.chars[cx] == '\t' {
+	for cx = 0; cx < row.Size; cx++ {
+		if row.Chars[cx] == '\t' {
 			curRx += (KILO_TAB_STOP - 1) - (curRx % KILO_TAB_STOP)
 		}
 		curRx++
@@ -286,54 +275,54 @@ func editorRowRxToCx(row *erow, rx int) int {
 	return cx
 }
 
-func editorUpdateRow(row *erow) {
+func editorUpdateRow(row *row.Row) {
 	tabs := 0
-	for _, c := range row.chars {
+	for _, c := range row.Chars {
 		if c == '\t' {
 			tabs++
 		}
 	}
 
-	row.render = make([]byte, row.size + tabs*(KILO_TAB_STOP - 1))
+	row.Render = make([]byte, row.Size + tabs*(KILO_TAB_STOP - 1))
 
 	idx := 0
-	for _, c := range row.chars {
+	for _, c := range row.Chars {
 		if c == '\t' {
-			row.render[idx] = ' '
+			row.Render[idx] = ' '
 			idx++
 			for (idx%KILO_TAB_STOP) != 0 {
-				row.render[idx] = ' '
+				row.Render[idx] = ' '
 				idx++
 			}
 		} else {
-			row.render[idx] = c
+			row.Render[idx] = c
 			idx++
 		}
 	}
-	row.rsize = idx
+	row.Rsize = idx
 	editorUpdateSyntax(row)
 }
 
 func editorInsertRow(at int, s []byte) {
 	if at < 0 || at > E.numRows { return }
-	var r erow
-	r.chars = s
-	r.size = len(s)
-	r.idx = at
+	var r row.Row
+	r.Chars = s
+	r.Size = len(s)
+	r.Idx = at
 
 	if at == 0 {
-		t := make([]erow, 1)
+		t := make([]row.Row, 1)
 		t[0] = r
 		E.rows = append(t, E.rows...)
 	} else if at == E.numRows {
 		E.rows = append(E.rows, r)
 	} else {
-		t := make([]erow, 1)
+		t := make([]row.Row, 1)
 		t[0] = r
 		E.rows = append(E.rows[:at], append(t, E.rows[at:]...)...)
 	}
 
-	for j := at + 1; j <= E.numRows; j++ { E.rows[j].idx++ }
+	for j := at + 1; j <= E.numRows; j++ { E.rows[j].Idx++ }
 
 	editorUpdateRow(&E.rows[at])
 	E.numRows++
@@ -345,39 +334,39 @@ func editorDelRow(at int) {
 	E.rows = append(E.rows[:at], E.rows[at+1:]...)
 	E.numRows--
 	E.dirty = true
-	for j := at; j < E.numRows; j++ { E.rows[j].idx-- }
+	for j := at; j < E.numRows; j++ { E.rows[j].Idx-- }
 }
 
-func editorRowInsertChar(row *erow, at int, c byte) {
-	if at < 0 || at > row.size {
-		row.chars = append(row.chars, c)
+func editorRowInsertChar(row *row.Row, at int, c byte) {
+	if at < 0 || at > row.Size {
+		row.Chars = append(row.Chars, c)
 	} else if at == 0 {
-		t := make([]byte, row.size+1)
+		t := make([]byte, row.Size+1)
 		t[0] = c
-		copy(t[1:], row.chars)
-		row.chars = t
+		copy(t[1:], row.Chars)
+		row.Chars = t
 	} else {
-		row.chars = append(
-			row.chars[:at],
-			append(append(make([]byte,0),c), row.chars[at:]...)...
+		row.Chars = append(
+			row.Chars[:at],
+			append(append(make([]byte,0),c), row.Chars[at:]...)...
 		)
 	}
-	row.size = len(row.chars)
+	row.Size = len(row.Chars)
 	editorUpdateRow(row)
 	E.dirty = true
 }
 
-func editorRowAppendString(row *erow, s []byte) {
-	row.chars = append(row.chars, s...)
-	row.size = len(row.chars)
+func editorRowAppendString(row *row.Row, s []byte) {
+	row.Chars = append(row.Chars, s...)
+	row.Size = len(row.Chars)
 	editorUpdateRow(row)
 	E.dirty = true
 }
 
-func editorRowDelChar(row *erow, at int) {
-	if at < 0 || at > row.size { return }
-	row.chars = append(row.chars[:at], row.chars[at+1:]...)
-	row.size--
+func editorRowDelChar(row *row.Row, at int) {
+	if at < 0 || at > row.Size { return }
+	row.Chars = append(row.Chars[:at], row.Chars[at+1:]...)
+	row.Size--
 	E.dirty = true
 	editorUpdateRow(row)
 }
@@ -397,9 +386,9 @@ func editorInsertNewLine() {
 	if E.cx == 0 {
 		editorInsertRow(E.cy, make([]byte, 0))
 	} else {
-		editorInsertRow(E.cy+1, E.rows[E.cy].chars[E.cx:])
-		E.rows[E.cy].chars = E.rows[E.cy].chars[:E.cx]
-		E.rows[E.cy].size = len(E.rows[E.cy].chars)
+		editorInsertRow(E.cy+1, E.rows[E.cy].Chars[E.cx:])
+		E.rows[E.cy].Chars = E.rows[E.cy].Chars[:E.cx]
+		E.rows[E.cy].Size = len(E.rows[E.cy].Chars)
 		editorUpdateRow(&E.rows[E.cy])
 	}
 	E.cy++
@@ -413,8 +402,8 @@ func editorDelChar() {
     	editorRowDelChar(&E.rows[E.cy], E.cx - 1)
 		E.cx--
 	} else {
-		E.cx = E.rows[E.cy - 1].size
-		editorRowAppendString(&E.rows[E.cy - 1], E.rows[E.cy].chars)
+		E.cx = E.rows[E.cy - 1].Size
+		editorRowAppendString(&E.rows[E.cy - 1], E.rows[E.cy].Chars)
 		editorDelRow(E.cy)
 		E.cy--
 	}
@@ -426,8 +415,8 @@ func editorRowsToString() (string, int) {
 	totlen := 0
 	buf := ""
 	for _, row := range E.rows {
-		totlen += row.size + 1
-		buf += string(row.chars) + "\n"
+		totlen += row.Size + 1
+		buf += string(row.Chars) + "\n"
 	}
 	return buf, totlen
 }
@@ -498,7 +487,7 @@ var savedHl []byte
 func editorFindCallback(qry []byte, key int) {
 
 	if savedHlLine > 0 {
-		copy(E.rows[savedHlLine].hl, savedHl)
+		copy(E.rows[savedHlLine].Hl, savedHl)
 		savedHlLine = 0
 		savedHl = nil
 	}
@@ -527,18 +516,18 @@ func editorFindCallback(qry []byte, key int) {
 			current = 0
 		}
 		row := &E.rows[current]
-		x := bytes.Index(row.render, qry)
+		x := bytes.Index(row.Render, qry)
 		if x > -1 {
 			lastMatch = current
 			E.cy = current
 			E.cx = editorRowRxToCx(row, x)
 			E.rowoff = E.numRows
 			savedHlLine = current
-			savedHl = make([]byte, row.rsize)
-			copy(savedHl, row.hl)
+			savedHl = make([]byte, row.Rsize)
+			copy(savedHl, row.Hl)
 			max := x + len(qry)
 			for i := x; i < max; i++ {
-				row.hl[i] = HL_MATCH
+				row.Hl[i] = HL_MATCH
 			}
 			break
 		}
@@ -609,13 +598,13 @@ func editorMoveCursor(key int) {
 			E.cx--
 		} else if E.cy > 0 {
 			E.cy--
-			E.cx = E.rows[E.cy].size
+			E.cx = E.rows[E.cy].Size
 		}
 	case keyboard.ARROW_RIGHT:
 		if E.cy < E.numRows {
-			if E.cx < E.rows[E.cy].size {
+			if E.cx < E.rows[E.cy].Size {
 				E.cx++
-			} else if E.cx == E.rows[E.cy].size {
+			} else if E.cx == E.rows[E.cy].Size {
 				E.cy++
 				E.cx = 0
 			}
@@ -632,7 +621,7 @@ func editorMoveCursor(key int) {
 
 	rowlen := 0
 	if E.cy < E.numRows {
-		rowlen = E.rows[E.cy].size
+		rowlen = E.rows[E.cy].Size
 	}
 	if E.cx > rowlen {
 		E.cx = rowlen
@@ -664,7 +653,7 @@ func editorProcessKeypress() {
 		E.cx = 0
 	case keyboard.END_KEY:
 		if E.cy < E.numRows {
-			E.cx = E.rows[E.cy].size
+			E.cx = E.rows[E.cy].Size
 		}
 	case keyboard.CTRL_F:
 		editorFind()
@@ -754,14 +743,14 @@ func editorDrawRows(ab *bytes.Buffer) {
 				ab.WriteString("~")
 			}
 		} else {
-			length := E.rows[filerow].rsize - E.coloff
+			length := E.rows[filerow].Rsize - E.coloff
 			if length < 0 { length = 0 }
 			if length > 0 {
 				if length > E.screenCols { length = E.screenCols }
 				rindex := E.coloff+length
-				hl := E.rows[filerow].hl[E.coloff:rindex]
+				hl := E.rows[filerow].Hl[E.coloff:rindex]
 				currentColor := -1
-				for j, c := range E.rows[filerow].render[E.coloff:rindex] {
+				for j, c := range E.rows[filerow].Render[E.coloff:rindex] {
 					if unicode.IsControl(rune(c)) {
 						ab.WriteString("\x1b[7m")
 						if c < 26 {
