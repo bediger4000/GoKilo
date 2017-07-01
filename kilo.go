@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"keyboard"
 	"log"
 	"os"
 	"screen"
@@ -19,18 +20,6 @@ import (
 const KILO_VERSION = "0.0.1"
 const KILO_TAB_STOP = 8
 const KILO_QUIT_TIMES = 3
-const (
-	BACKSPACE   = 127
-	ARROW_LEFT  = 1000 + iota
-	ARROW_RIGHT = 1000 + iota
-	ARROW_UP    = 1000 + iota
-	ARROW_DOWN  = 1000 + iota
-	DEL_KEY     = 1000 + iota
-	HOME_KEY    = 1000 + iota
-	END_KEY     = 1000 + iota
-	PAGE_UP     = 1000 + iota
-	PAGE_DOWN   = 1000 + iota
-)
 
 const (
 	HL_NORMAL     = 0
@@ -116,75 +105,6 @@ func die(err error) {
 	io.WriteString(os.Stdout, "\x1b[2J")
 	io.WriteString(os.Stdout, "\x1b[H")
 	log.Fatal(err)
-}
-
-func editorReadKey() int {
-	var buffer [1]byte
-	var cc int
-	var err error
-	for cc, err = os.Stdin.Read(buffer[:]); cc != 1; cc, err = os.Stdin.Read(buffer[:]) {
-	}
-	if err != nil {
-		die(err)
-	}
-	if buffer[0] == '\x1b' {
-		var seq [2]byte
-		if cc, _ = os.Stdin.Read(seq[:]); cc != 2 {
-			return '\x1b'
-		}
-
-		if seq[0] == '[' {
-			if seq[1] >= '0' && seq[1] <= '9' {
-				if cc, err = os.Stdin.Read(buffer[:]); cc != 1 {
-					return '\x1b'
-				}
-				if buffer[0] == '~' {
-					switch seq[1] {
-					case '1':
-						return HOME_KEY
-					case '3':
-						return DEL_KEY
-					case '4':
-						return END_KEY
-					case '5':
-						return PAGE_UP
-					case '6':
-						return PAGE_DOWN
-					case '7':
-						return HOME_KEY
-					case '8':
-						return END_KEY
-					}
-				}
-				// XXX - what happens here?
-			} else {
-				switch seq[1] {
-				case 'A':
-					return ARROW_UP
-				case 'B':
-					return ARROW_DOWN
-				case 'C':
-					return ARROW_RIGHT
-				case 'D':
-					return ARROW_LEFT
-				case 'H':
-					return HOME_KEY
-				case 'F':
-					return END_KEY
-				}
-			}
-		} else if seq[0] == '0' {
-			switch seq[1] {
-			case 'H':
-				return HOME_KEY
-			case 'F':
-				return END_KEY
-			}
-		}
-
-		return '\x1b'
-	}
-	return int(buffer[0])
 }
 
 /*** syntax hightlighting ***/
@@ -583,13 +503,13 @@ func editorFindCallback(qry []byte, key int) {
 		savedHl = nil
 	}
 
-	if key == '\r' || key == '\x1b' {
+	if key == '\r' || key == keyboard.ESCAPE {
 		lastMatch = -1
 		direction = 1
 		return
-	} else if key == ARROW_RIGHT || key == ARROW_DOWN {
+	} else if key == keyboard.ARROW_RIGHT || key == keyboard.ARROW_DOWN {
 		direction = 1
-	} else if key == ARROW_LEFT  || key == ARROW_UP   {
+	} else if key == keyboard.ARROW_LEFT  || key == keyboard.ARROW_UP   {
 		direction = -1
 	} else {
 		lastMatch = -1
@@ -649,19 +569,21 @@ func editorPrompt(prompt string, callback func([]byte,int)) string {
 		editorSetStatusMessage(prompt, buf)
 		editorRefreshScreen()
 
-		c := editorReadKey()
+		c, e := keyboard.ReadKey()
+		if e != nil { die(e) }
 
-		if c == DEL_KEY || c == ('h' & 0x1f) || c == BACKSPACE {
+		switch c {
+		case keyboard.DEL_KEY, keyboard.CTRL_H, keyboard.BACKSPACE:
 			if (len(buf) > 0) {
 				buf = buf[:len(buf)-1]
 			}
-		} else if c == '\x1b' {
+		case keyboard.ESCAPE:
 			editorSetStatusMessage("")
 			if callback != nil {
 				callback(buf, c)
 			}
 			return ""
-		} else if c == '\r' {
+		case '\r':
 			if len(buf) != 0 {
 				editorSetStatusMessage("")
 				if callback != nil {
@@ -669,7 +591,7 @@ func editorPrompt(prompt string, callback func([]byte,int)) string {
 				}
 				return string(buf)
 			}
-		} else {
+		default:
 			if unicode.IsPrint(rune(c)) {
 				buf = append(buf, byte(c))
 			}
@@ -682,14 +604,14 @@ func editorPrompt(prompt string, callback func([]byte,int)) string {
 
 func editorMoveCursor(key int) {
 	switch key {
-	case ARROW_LEFT:
+	case keyboard.ARROW_LEFT:
 		if E.cx != 0 {
 			E.cx--
 		} else if E.cy > 0 {
 			E.cy--
 			E.cx = E.rows[E.cy].size
 		}
-	case ARROW_RIGHT:
+	case keyboard.ARROW_RIGHT:
 		if E.cy < E.numRows {
 			if E.cx < E.rows[E.cy].size {
 				E.cx++
@@ -698,11 +620,11 @@ func editorMoveCursor(key int) {
 				E.cx = 0
 			}
 		}
-	case ARROW_UP:
+	case keyboard.ARROW_UP:
 		if E.cy != 0 {
 			E.cy--
 		}
-	case ARROW_DOWN:
+	case keyboard.ARROW_DOWN:
 		if E.cy < E.numRows {
 			E.cy++
 		}
@@ -720,12 +642,13 @@ func editorMoveCursor(key int) {
 var quitTimes int = KILO_QUIT_TIMES
 
 func editorProcessKeypress() {
-	c := editorReadKey()
+	c, e := keyboard.ReadKey()
+	if e != nil { die(e) }
 	switch c {
 	case '\r':
 		editorInsertNewLine()
 		break
-	case ('q' & 0x1f):
+	case keyboard.CTRL_Q:
 		if E.dirty && quitTimes > 0 {
 			editorSetStatusMessage("Warning!!! File has unsaved changes. Press Ctrl-Q %d more times to quit.", quitTimes)
 			quitTimes--
@@ -735,25 +658,25 @@ func editorProcessKeypress() {
 		io.WriteString(os.Stdout, "\x1b[H")
 		E.terminal.DisableRawMode()
 		os.Exit(0)
-	case ('s' & 0x1f):
+	case keyboard.CTRL_S:
 		editorSave()
-	case HOME_KEY:
+	case keyboard.HOME_KEY:
 		E.cx = 0
-	case END_KEY:
+	case keyboard.END_KEY:
 		if E.cy < E.numRows {
 			E.cx = E.rows[E.cy].size
 		}
-	case ('f' & 0x1f):
+	case keyboard.CTRL_F:
 		editorFind()
-	case ('h' & 0x1f), BACKSPACE, DEL_KEY:
-		if c == DEL_KEY { editorMoveCursor(ARROW_RIGHT) }
+	case keyboard.CTRL_H, keyboard.BACKSPACE, keyboard.DEL_KEY:
+		if c == keyboard.DEL_KEY { editorMoveCursor(keyboard.ARROW_RIGHT) }
 		editorDelChar()
 		break
-	case PAGE_UP, PAGE_DOWN:
-		dir := ARROW_DOWN
-		if c == PAGE_UP {
+	case keyboard.PAGE_UP, keyboard.PAGE_DOWN:
+		dir := keyboard.ARROW_DOWN
+		if c == keyboard.PAGE_UP {
 			E.cy = E.rowoff
-			dir = ARROW_UP
+			dir = keyboard.ARROW_UP
 		} else {
 			E.cy = E.rowoff + E.screenRows - 1
 			if E.cy > E.numRows { E.cy = E.numRows }
@@ -761,11 +684,12 @@ func editorProcessKeypress() {
 		for times := E.screenRows; times > 0; times-- {
 			editorMoveCursor(dir)
 		}
-	case ARROW_UP, ARROW_DOWN, ARROW_LEFT, ARROW_RIGHT:
+	case keyboard.ARROW_UP, keyboard.ARROW_DOWN,
+		keyboard.ARROW_LEFT, keyboard.ARROW_RIGHT:
 		editorMoveCursor(c)
-	case ('l' & 0x1f):
+	case keyboard.CTRL_L:
 		break
-	case '\x1b':
+	case keyboard.ESCAPE:
 		break
 	default:
 		editorInsertChar(byte(c))
@@ -830,11 +754,11 @@ func editorDrawRows(ab *bytes.Buffer) {
 				ab.WriteString("~")
 			}
 		} else {
-			len := E.rows[filerow].rsize - E.coloff
-			if len < 0 { len = 0 }
-			if len > 0 {
-				if len > E.screenCols { len = E.screenCols }
-				rindex := E.coloff+len
+			length := E.rows[filerow].rsize - E.coloff
+			if length < 0 { length = 0 }
+			if length > 0 {
+				if length > E.screenCols { length = E.screenCols }
+				rindex := E.coloff+length
 				hl := E.rows[filerow].hl[E.coloff:rindex]
 				currentColor := -1
 				for j, c := range E.rows[filerow].render[E.coloff:rindex] {
