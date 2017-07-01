@@ -11,7 +11,7 @@ import (
 	"screen"
 	"strings"
 	"time"
-	"terminal"
+	"tty"
 	"unicode"
 )
 
@@ -74,7 +74,7 @@ type editorConfig struct {
 	statusmsg   string
 	statusmsg_time time.Time
     syntax      *editorSyntax
-	terminal  *terminal.Terminal
+	tty  *tty.Tty
 }
 
 var E editorConfig
@@ -101,7 +101,7 @@ var HLDB []editorSyntax = []editorSyntax{
 /*** terminal ***/
 
 func die(err error) {
-	E.terminal.DisableRawMode()
+	E.tty.DisableRawMode()
 	io.WriteString(os.Stdout, "\x1b[2J")
 	io.WriteString(os.Stdout, "\x1b[H")
 	log.Fatal(err)
@@ -656,7 +656,7 @@ func editorProcessKeypress() {
 		}
 		io.WriteString(os.Stdout, "\x1b[2J")
 		io.WriteString(os.Stdout, "\x1b[H")
-		E.terminal.DisableRawMode()
+		E.tty.DisableRawMode()
 		os.Exit(0)
 	case keyboard.CTRL_S:
 		editorSave()
@@ -855,9 +855,9 @@ func initEditor() {
 
 func main() {
 
-	E.terminal = new(terminal.Terminal)
-	E.terminal.EnableRawMode()
-	defer E.terminal.DisableRawMode()
+	E.tty = new(tty.Tty)
+	E.tty.EnableRawMode()
+	defer E.tty.DisableRawMode()
 
 	initEditor()
 
