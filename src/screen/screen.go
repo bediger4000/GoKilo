@@ -52,9 +52,7 @@ func GetWindowSize() (rows int, cols int, worked bool) {
 	)
 	if err == 0 { // type syscall.Errno
 		return int(w.row), int(w.col), true
-	} else {
-		io.WriteString(os.Stdout, "\x1b[999C\x1b[999B")
-		return getCursorPosition()
 	}
-	return -1, -1, false
+	io.WriteString(os.Stdout, "\x1b[999C\x1b[999B")
+	return getCursorPosition()
 }
