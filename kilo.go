@@ -19,7 +19,6 @@ import (
 /*** defines ***/
 
 const KILO_VERSION = "0.0.1"
-const KILO_TAB_STOP = 8
 const KILO_QUIT_TIMES = 3
 
 const (
@@ -249,61 +248,6 @@ func editorSelectSyntaxHighlight() {
 	}
 }
 
-/*** row operations ***/
-
-func editorRowCxToRx(row *row.Row, cx int) int {
-	rx := 0
-	for j := 0; j < row.Size && j < cx; j++ {
-		if row.Chars[j] == '\t' {
-			rx += ((KILO_TAB_STOP - 1) - (rx % KILO_TAB_STOP))
-		}
-		rx++
-	}
-	return rx
-}
-
-func editorRowRxToCx(row *row.Row, rx int) int {
-	curRx := 0
-	var cx int
-	for cx = 0; cx < row.Size; cx++ {
-		if row.Chars[cx] == '\t' {
-			curRx += (KILO_TAB_STOP - 1) - (curRx % KILO_TAB_STOP)
-		}
-		curRx++
-		if curRx > rx { break }
-	}
-	return cx
-}
-
-func editorUpdateRow(row *row.Row) {
-	tabs := 0
-	for _, c := range row.Chars {
-		if c == '\t' {
-			tabs++
-		}
-	}
-
-	row.Render = make([]byte, row.Size + tabs*(KILO_TAB_STOP - 1))
-
-	idx := 0
-	for _, c := range row.Chars {
-		if c == '\t' {
-			row.Render[idx] = ' '
-			idx++
-			for (idx%KILO_TAB_STOP) != 0 {
-				row.Render[idx] = ' '
-				idx++
-			}
-		} else {
-			row.Render[idx] = c
-			idx++
-		}
-	}
-	row.Rsize = idx
-	row.Render = row.Render[0:idx]
-	editorUpdateSyntax(row)
-}
-
 func editorInsertRow(at int, s []byte) {
 	if at < 0 || at > E.numRows { return }
 	var r row.Row
@@ -325,7 +269,8 @@ func editorInsertRow(at int, s []byte) {
 
 	for j := at + 1; j <= E.numRows; j++ { E.rows[j].Idx++ }
 
-	editorUpdateRow(&E.rows[at])
+	(&E.rows[at]).UpdateRow()
+	editorUpdateSyntax(&E.rows[at])
 	E.numRows++
 	E.dirty = true
 }
@@ -353,14 +298,16 @@ func editorRowInsertChar(row *row.Row, at int, c byte) {
 		)
 	}
 	row.Size = len(row.Chars)
-	editorUpdateRow(row)
+	row.UpdateRow()
+	editorUpdateSyntax(row)
 	E.dirty = true
 }
 
 func editorRowAppendString(row *row.Row, s []byte) {
 	row.Chars = append(row.Chars, s...)
 	row.Size = len(row.Chars)
-	editorUpdateRow(row)
+	row.UpdateRow()
+	editorUpdateSyntax(row)
 	E.dirty = true
 }
 
@@ -369,7 +316,8 @@ func editorRowDelChar(row *row.Row, at int) {
 	row.Chars = append(row.Chars[:at], row.Chars[at+1:]...)
 	row.Size--
 	E.dirty = true
-	editorUpdateRow(row)
+	row.UpdateRow()
+	editorUpdateSyntax(row)
 }
 
 /*** editor operations ***/
@@ -390,7 +338,8 @@ func editorInsertNewLine() {
 		editorInsertRow(E.cy+1, E.rows[E.cy].Chars[E.cx:])
 		E.rows[E.cy].Chars = E.rows[E.cy].Chars[:E.cx]
 		E.rows[E.cy].Size = len(E.rows[E.cy].Chars)
-		editorUpdateRow(&E.rows[E.cy])
+		(&E.rows[E.cy]).UpdateRow()
+		editorUpdateSyntax(&E.rows[E.cy])
 	}
 	E.cy++
 	E.cx = 0
@@ -521,7 +470,7 @@ func editorFindCallback(qry []byte, key int) {
 		if x > -1 {
 			lastMatch = current
 			E.cy = current
-			E.cx = editorRowRxToCx(row, x)
+			E.cx = row.RowRxToCx(x)
 			E.rowoff = E.numRows
 			savedHlLine = current
 			savedHl = make([]byte, row.Rsize)
@@ -693,7 +642,7 @@ func editorScroll() {
 	E.rx = 0
 
 	if (E.cy < E.numRows) {
-		E.rx = editorRowCxToRx(&(E.rows[E.cy]), E.cx)
+		E.rx = (&E.rows[E.cy]).RowCxToRx(E.cx)
 	}
 
 	if E.cy < E.rowoff {
