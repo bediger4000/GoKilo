@@ -58,7 +58,7 @@ type editorConfig struct {
 	screenRows  int
 	screenCols  int
 	numRows     int
-	rows        []row.Row
+	rows        []*row.Row
 	dirty       bool
 	filename    string
 	statusmsg   string
@@ -112,8 +112,8 @@ func editorUpdateSyntax(row *row.Row) {
 	mce := E.syntax.multiLineCommentEnd
 	prevSep   := true
 	inComment := row.Idx > 0 && E.rows[row.Idx-1].HlOpenComment
-	var inString byte = 0
-	var skip = 0
+	var inString byte
+	var skip int
 	for i, c := range row.Render {
 		if skip > 0 {
 			skip--
@@ -212,7 +212,7 @@ func editorUpdateSyntax(row *row.Row) {
 	changed := row.HlOpenComment != inComment
 	row.HlOpenComment = inComment
 	if changed && row.Idx + 1 < E.numRows {
-		editorUpdateSyntax(&E.rows[row.Idx + 1])
+		editorUpdateSyntax(E.rows[row.Idx + 1])
 	}
 }
 
@@ -255,21 +255,21 @@ func editorInsertRow(at int, s []byte) {
 	r.Idx = at
 
 	if at == 0 {
-		t := make([]row.Row, 1)
-		t[0] = r
+		t := make([]*row.Row, 1)
+		t[0] = &r
 		E.rows = append(t, E.rows...)
 	} else if at == E.numRows {
-		E.rows = append(E.rows, r)
+		E.rows = append(E.rows, &r)
 	} else {
-		t := make([]row.Row, 1)
-		t[0] = r
+		t := make([]*row.Row, 1)
+		t[0] = &r
 		E.rows = append(E.rows[:at], append(t, E.rows[at:]...)...)
 	}
 
 	for j := at + 1; j <= E.numRows; j++ { E.rows[j].Idx++ }
 
-	(&E.rows[at]).UpdateRow()
-	editorUpdateSyntax(&E.rows[at])
+	E.rows[at].UpdateRow()
+	editorUpdateSyntax(E.rows[at])
 	E.numRows++
 	E.dirty = true
 }
@@ -289,8 +289,8 @@ func editorInsertChar(c byte) {
 		var emptyRow []byte
 		editorInsertRow(E.numRows, emptyRow)
 	}
-	(&E.rows[E.cy]).RowInsertChar(E.cx, c)
-	editorUpdateSyntax(&E.rows[E.cy])
+	E.rows[E.cy].RowInsertChar(E.cx, c)
+	editorUpdateSyntax(E.rows[E.cy])
 	E.dirty = true
 	E.cx++
 }
@@ -302,8 +302,8 @@ func editorInsertNewLine() {
 		editorInsertRow(E.cy+1, E.rows[E.cy].Chars[E.cx:])
 		E.rows[E.cy].Chars = E.rows[E.cy].Chars[:E.cx]
 		E.rows[E.cy].Size = len(E.rows[E.cy].Chars)
-		(&E.rows[E.cy]).UpdateRow()
-		editorUpdateSyntax(&E.rows[E.cy])
+		E.rows[E.cy].UpdateRow()
+		editorUpdateSyntax(E.rows[E.cy])
 	}
 	E.cy++
 	E.cx = 0
@@ -313,13 +313,13 @@ func editorDelChar() {
 	if E.cy == E.numRows { return }
 	if E.cx == 0 && E.cy == 0 { return }
 	if E.cx > 0 {
-    	(&E.rows[E.cy]).RowDelChar(E.cx - 1)
-		editorUpdateSyntax(&E.rows[E.cy])
+    	E.rows[E.cy].RowDelChar(E.cx - 1)
+		editorUpdateSyntax(E.rows[E.cy])
 		E.cx--
 	} else {
 		E.cx = E.rows[E.cy - 1].Size
-		(&E.rows[E.cy - 1]).RowAppendString(E.rows[E.cy].Chars)
-		editorUpdateSyntax(&E.rows[E.cy - 1])
+		E.rows[E.cy - 1].RowAppendString(E.rows[E.cy].Chars)
+		editorUpdateSyntax(E.rows[E.cy - 1])
 		E.dirty = true
 		editorDelRow(E.cy)
 		E.cy--
@@ -433,7 +433,7 @@ func editorFindCallback(qry []byte, key int) {
 		} else if current == E.numRows {
 			current = 0
 		}
-		row := &E.rows[current]
+		row := E.rows[current]
 		x := bytes.Index(row.Render, qry)
 		if x > -1 {
 			lastMatch = current
@@ -610,7 +610,7 @@ func editorScroll() {
 	E.rx = 0
 
 	if (E.cy < E.numRows) {
-		E.rx = (&E.rows[E.cy]).RowCxToRx(E.cx)
+		E.rx = E.rows[E.cy].RowCxToRx(E.cx)
 	}
 
 	if E.cy < E.rowoff {
