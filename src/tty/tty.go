@@ -7,7 +7,7 @@ import (
 	"unsafe"
 )
 
-type Termios struct {
+type termios struct {
 	Iflag  uint32
 	Oflag  uint32
 	Cflag  uint32
@@ -18,10 +18,10 @@ type Termios struct {
 }
 
 type Tty struct {
-	original *Termios
+	original *termios
 }
 
-func tcSetAttr(fd uintptr, termios *Termios) error {
+func tcSetAttr(fd uintptr, termios *termios) error {
 	// TCSETS+1 == TCSETSW, because TCSAFLUSH doesn't exist
 	if _, _, err := syscall.Syscall(syscall.SYS_IOCTL, fd, uintptr(syscall.TCSETS+1), uintptr(unsafe.Pointer(termios))); err != 0 {
 		return err
@@ -29,8 +29,8 @@ func tcSetAttr(fd uintptr, termios *Termios) error {
 	return nil
 }
 
-func tcGetAttr(fd uintptr) *Termios {
-	var termios = &Termios{}
+func tcGetAttr(fd uintptr) *termios {
+	var termios = &termios{}
 	if _, _, err := syscall.Syscall(syscall.SYS_IOCTL, fd, syscall.TCGETS, uintptr(unsafe.Pointer(termios))); err != 0 {
 		log.Fatalf("Problem getting terminal attributes: %s\n", err)
 	}
@@ -39,7 +39,7 @@ func tcGetAttr(fd uintptr) *Termios {
 
 func (t *Tty) EnableRawMode() {
 	t.original = tcGetAttr(os.Stdin.Fd())
-	var raw Termios
+	var raw termios
 	raw = *t.original
 	raw.Iflag &^= syscall.BRKINT | syscall.ICRNL | syscall.INPCK | syscall.ISTRIP | syscall.IXON
 	raw.Oflag &^= syscall.OPOST
