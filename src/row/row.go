@@ -90,3 +90,9 @@ func (row *Row) RowDelChar(at int) {
 	row.Size--
 	row.UpdateRow()
 }
+
+func (row *Row) RowAppendString(s []byte) {
+	row.Chars = append(row.Chars, s...)
+	row.Size = len(row.Chars)
+	row.UpdateRow()
+}

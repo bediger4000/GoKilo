@@ -282,14 +282,6 @@ func editorDelRow(at int) {
 	for j := at; j < E.numRows; j++ { E.rows[j].Idx-- }
 }
 
-func editorRowAppendString(row *row.Row, s []byte) {
-	row.Chars = append(row.Chars, s...)
-	row.Size = len(row.Chars)
-	row.UpdateRow()
-	editorUpdateSyntax(row)
-	E.dirty = true
-}
-
 /*** editor operations ***/
 
 func editorInsertChar(c byte) {
@@ -326,7 +318,9 @@ func editorDelChar() {
 		E.cx--
 	} else {
 		E.cx = E.rows[E.cy - 1].Size
-		editorRowAppendString(&E.rows[E.cy - 1], E.rows[E.cy].Chars)
+		(&E.rows[E.cy - 1]).RowAppendString(E.rows[E.cy].Chars)
+		editorUpdateSyntax(&E.rows[E.cy - 1])
+		E.dirty = true
 		editorDelRow(E.cy)
 		E.cy--
 	}
