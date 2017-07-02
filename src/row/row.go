@@ -64,8 +64,29 @@ func (row *Row) UpdateRow() {
 	}
 	row.Rsize = idx
 	row.Render = row.Render[0:idx]
-	row.UpdateSyntax()
 }
 
-func (row *Row) UpdateSyntax() {
+func (row *Row) RowInsertChar(at int, c byte) {
+	if at < 0 || at > row.Size {
+		row.Chars = append(row.Chars, c)
+	} else if at == 0 {
+		t := make([]byte, row.Size+1)
+		t[0] = c
+		copy(t[1:], row.Chars)
+		row.Chars = t
+	} else {
+		row.Chars = append(
+			row.Chars[:at],
+			append(append(make([]byte, 0), c), row.Chars[at:]...)...,
+		)
+	}
+	row.Size = len(row.Chars)
+	row.UpdateRow()
+}
+
+func (row *Row) RowDelChar(at int) {
+	if at < 0 || at > row.Size { return }
+	row.Chars = append(row.Chars[:at], row.Chars[at+1:]...)
+	row.Size--
+	row.UpdateRow()
 }

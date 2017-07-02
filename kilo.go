@@ -64,7 +64,6 @@ type editorConfig struct {
 	statusmsg   string
 	statusmsg_time time.Time
     syntax      *editorSyntax
-	tty  *tty.Tty
 }
 
 var E editorConfig
@@ -283,41 +282,12 @@ func editorDelRow(at int) {
 	for j := at; j < E.numRows; j++ { E.rows[j].Idx-- }
 }
 
-func editorRowInsertChar(row *row.Row, at int, c byte) {
-	if at < 0 || at > row.Size {
-		row.Chars = append(row.Chars, c)
-	} else if at == 0 {
-		t := make([]byte, row.Size+1)
-		t[0] = c
-		copy(t[1:], row.Chars)
-		row.Chars = t
-	} else {
-		row.Chars = append(
-			row.Chars[:at],
-			append(append(make([]byte,0),c), row.Chars[at:]...)...
-		)
-	}
-	row.Size = len(row.Chars)
-	row.UpdateRow()
-	editorUpdateSyntax(row)
-	E.dirty = true
-}
-
 func editorRowAppendString(row *row.Row, s []byte) {
 	row.Chars = append(row.Chars, s...)
 	row.Size = len(row.Chars)
 	row.UpdateRow()
 	editorUpdateSyntax(row)
 	E.dirty = true
-}
-
-func editorRowDelChar(row *row.Row, at int) {
-	if at < 0 || at > row.Size { return }
-	row.Chars = append(row.Chars[:at], row.Chars[at+1:]...)
-	row.Size--
-	E.dirty = true
-	row.UpdateRow()
-	editorUpdateSyntax(row)
 }
 
 /*** editor operations ***/
@@ -327,7 +297,9 @@ func editorInsertChar(c byte) {
 		var emptyRow []byte
 		editorInsertRow(E.numRows, emptyRow)
 	}
-	editorRowInsertChar(&E.rows[E.cy], E.cx, c)
+	(&E.rows[E.cy]).RowInsertChar(E.cx, c)
+	editorUpdateSyntax(&E.rows[E.cy])
+	E.dirty = true
 	E.cx++
 }
 
@@ -349,7 +321,8 @@ func editorDelChar() {
 	if E.cy == E.numRows { return }
 	if E.cx == 0 && E.cy == 0 { return }
 	if E.cx > 0 {
-    	editorRowDelChar(&E.rows[E.cy], E.cx - 1)
+    	(&E.rows[E.cy]).RowDelChar(E.cx - 1)
+		editorUpdateSyntax(&E.rows[E.cy])
 		E.cx--
 	} else {
 		E.cx = E.rows[E.cy - 1].Size
@@ -357,6 +330,7 @@ func editorDelChar() {
 		editorDelRow(E.cy)
 		E.cy--
 	}
+	E.dirty = true
 }
 
 /*** file I/O ***/
