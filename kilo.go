@@ -97,16 +97,12 @@ func die(err error) {
 /*** syntax hightlighting ***/
 var separators = []byte(",.()+-/*=~%<>[]; \t\n\r")
 func isSeparator(c byte) bool {
-	if bytes.IndexByte(separators, c) >= 0 {
-		return true
-	}
-	return false
+	return bytes.IndexByte(separators, c) >= 0
 }
 
-func editorUpdateSyntax(E *editorConfig, row *row.Row) {
+func (E *editorConfig) UpdateSyntax(row *row.Row) {
 	row.Hl = make([]byte, row.Rsize)
 	if E.syntax == nil { return }
-	keywords := E.syntax.keywords[:]
 	scs := E.syntax.singleLineCommentStart
 	mcs := E.syntax.multiLineCommentStart
 	mce := E.syntax.multiLineCommentEnd
@@ -182,7 +178,7 @@ func editorUpdateSyntax(E *editorConfig, row *row.Row) {
 		if prevSep {
 			var j int
 			var skw string
-			for j, skw = range keywords {
+			for j, skw = range E.syntax.keywords[:] {
 				kw := []byte(skw)
 				var color byte = HL_KEYWORD1
 				idx := bytes.LastIndexByte(kw, '|')
@@ -201,7 +197,7 @@ func editorUpdateSyntax(E *editorConfig, row *row.Row) {
 					break
 				}
 			}
-			if j < len(keywords) - 1 {
+			if j < len(E.syntax.keywords) - 1 {
 				prevSep = false
 				continue
 			}
@@ -212,7 +208,7 @@ func editorUpdateSyntax(E *editorConfig, row *row.Row) {
 	changed := row.HlOpenComment != inComment
 	row.HlOpenComment = inComment
 	if changed && row.Idx + 1 < E.numRows {
-		editorUpdateSyntax(E, E.rows[row.Idx + 1])
+		E.UpdateSyntax(E.rows[row.Idx + 1])
 	}
 }
 
@@ -234,7 +230,7 @@ func editorSyntaxToColor(hl byte) int {
 	return 37
 }
 
-func editorSelectSyntaxHighlight(E *editorConfig) {
+func (E *editorConfig) SelectSyntaxHighlight() {
 	if E.filename == "" { return }
 
 	for _, s := range HLDB {
@@ -269,7 +265,7 @@ func (E *editorConfig) InsertRow(at int, s []byte) {
 	for j := at + 1; j <= E.numRows; j++ { E.rows[j].Idx++ }
 
 	E.rows[at].UpdateRow()
-	editorUpdateSyntax(E, E.rows[at])
+	E.UpdateSyntax(E.rows[at])
 	E.numRows++
 	E.dirty = true
 }
@@ -290,7 +286,7 @@ func (E *editorConfig) InsertChar(c byte) {
 		E.InsertRow(E.numRows, emptyRow)
 	}
 	E.rows[E.cy].RowInsertChar(E.cx, c)
-	editorUpdateSyntax(E, E.rows[E.cy])
+	E.UpdateSyntax(E.rows[E.cy])
 	E.dirty = true
 	E.cx++
 }
@@ -303,7 +299,7 @@ func (E *editorConfig) InsertNewLine() {
 		E.rows[E.cy].Chars = E.rows[E.cy].Chars[:E.cx]
 		E.rows[E.cy].Size = len(E.rows[E.cy].Chars)
 		E.rows[E.cy].UpdateRow()
-		editorUpdateSyntax(E, E.rows[E.cy])
+		E.UpdateSyntax(E.rows[E.cy])
 	}
 	E.cy++
 	E.cx = 0
@@ -314,12 +310,12 @@ func (E *editorConfig) DelChar() {
 	if E.cx == 0 && E.cy == 0 { return }
 	if E.cx > 0 {
     	E.rows[E.cy].RowDelChar(E.cx - 1)
-		editorUpdateSyntax(E, E.rows[E.cy])
+		E.UpdateSyntax(E.rows[E.cy])
 		E.cx--
 	} else {
 		E.cx = E.rows[E.cy - 1].Size
 		E.rows[E.cy - 1].RowAppendString(E.rows[E.cy].Chars)
-		editorUpdateSyntax(E, E.rows[E.cy - 1])
+		E.UpdateSyntax(E.rows[E.cy - 1])
 		E.dirty = true
 		E.DelRow(E.cy)
 		E.cy--
@@ -339,10 +335,11 @@ func (E *editorConfig) RowsToString() (string, int) {
 	return buf, totlen
 }
 
-func (E *editorConfig) Open(filename string) {
-	E.filename = filename
-	editorSelectSyntaxHighlight(E)
-	fd, err := os.Open(filename)
+func (E *editorConfig) Open(filenames []string) {
+	if len(filenames) == 1 { return }
+	E.filename = filenames[1]
+	E.SelectSyntaxHighlight()
+	fd, err := os.Open(E.filename)
 	if err != nil {
 		die(err)
 	}
@@ -373,7 +370,7 @@ func (E *editorConfig) Save() {
 			E.SetStatusMessage("Save aborted")
 			return
 		}
-		editorSelectSyntaxHighlight(E)
+		E.SelectSyntaxHighlight()
 	}
 	buf, len := E.RowsToString()
 	fp,e := os.OpenFile(E.filename, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0644)
@@ -402,7 +399,7 @@ var direction = 1
 var savedHlLine int
 var savedHl []byte
 
-func editorFindCallback(E *editorConfig, qry []byte, key int) {
+func (E *editorConfig) FindCallback(qry []byte, key int) {
 
 	if savedHlLine > 0 {
 		copy(E.rows[savedHlLine].Hl, savedHl)
@@ -458,7 +455,7 @@ func editorFind(E *editorConfig) {
 	savedColoff := E.coloff
 	savedRowoff := E.rowoff
 	query := E.Prompt("Search: %s (ESC/Arrows/Enter)",
-		editorFindCallback)
+		E.FindCallback)
 	if query == "" {
 		E.cx = savedCx
 		E.cy = savedCy
@@ -469,7 +466,7 @@ func editorFind(E *editorConfig) {
 
 /*** input ***/
 
-func (E *editorConfig) Prompt(prompt string, callback func(*editorConfig,[]byte,int)) string {
+func (E *editorConfig) Prompt(prompt string, callback func([]byte,int)) string {
 	var buf []byte
 
 	for {
@@ -487,14 +484,14 @@ func (E *editorConfig) Prompt(prompt string, callback func(*editorConfig,[]byte,
 		case keyboard.ESCAPE:
 			E.SetStatusMessage("")
 			if callback != nil {
-				callback(E, buf, c)
+				callback(buf, c)
 			}
 			return ""
 		case '\r':
 			if len(buf) != 0 {
 				E.SetStatusMessage("")
 				if callback != nil {
-					callback(E, buf, c)
+					callback(buf, c)
 				}
 				return string(buf)
 			}
@@ -504,7 +501,7 @@ func (E *editorConfig) Prompt(prompt string, callback func(*editorConfig,[]byte,
 			}
 		}
 		if callback != nil {
-			callback(E, buf, c)
+			callback(buf, c)
 		}
 	}
 }
@@ -751,13 +748,14 @@ func (E *editorConfig) SetStatusMessage(args...interface{}) {
 
 /*** init ***/
 
-func (E *editorConfig) initEditor() {
-	// Initialization a la C not necessary.
+func initEditor() *editorConfig {
+	var ec editorConfig
 	var e bool
-	if E.screenRows, E.screenCols, e = screen.GetWindowSize();  !e {
+	if ec.screenRows, ec.screenCols, e = screen.GetWindowSize();  !e {
 		die(fmt.Errorf("couldn't get screen size"))
 	}
-	E.screenRows -= 2
+	ec.screenRows -= 2
+	return &ec
 }
 
 var ttyDev *tty.Tty
@@ -768,13 +766,9 @@ func main() {
 	ttyDev.EnableRawMode()
 	defer ttyDev.DisableRawMode()
 
-	E := new(editorConfig)
+	E := initEditor()
 
-	E.initEditor()
-
-	if len(os.Args) > 1 {
-		E.Open(os.Args[1])
-	}
+	E.Open(os.Args)
 
 	E.SetStatusMessage("HELP: Ctrl-S = save | Ctrl-Q = quit | Ctrl-F = find")
 
