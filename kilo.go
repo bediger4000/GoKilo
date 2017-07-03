@@ -284,7 +284,7 @@ func editorDelRow(at int) {
 
 /*** editor operations ***/
 
-func editorInsertChar(c byte) {
+func (E *editorConfig) InsertChar(c byte) {
 	if E.cy == E.numRows {
 		var emptyRow []byte
 		editorInsertRow(E.numRows, emptyRow)
@@ -295,7 +295,7 @@ func editorInsertChar(c byte) {
 	E.cx++
 }
 
-func editorInsertNewLine() {
+func (E *editorConfig) InsertNewLine() {
 	if E.cx == 0 {
 		editorInsertRow(E.cy, make([]byte, 0))
 	} else {
@@ -309,7 +309,7 @@ func editorInsertNewLine() {
 	E.cx = 0
 }
 
-func editorDelChar() {
+func (E *editorConfig) DelChar() {
 	if E.cy == E.numRows { return }
 	if E.cx == 0 && E.cy == 0 { return }
 	if E.cx > 0 {
@@ -329,7 +329,7 @@ func editorDelChar() {
 
 /*** file I/O ***/
 
-func editorRowsToString() (string, int) {
+func (E *editorConfig) RowsToString() (string, int) {
 	totlen := 0
 	buf := ""
 	for _, row := range E.rows {
@@ -339,7 +339,7 @@ func editorRowsToString() (string, int) {
 	return buf, totlen
 }
 
-func editorOpen(filename string) {
+func (E *editorConfig) Open(filename string) {
 	E.filename = filename
 	editorSelectSyntaxHighlight()
 	fd, err := os.Open(filename)
@@ -366,19 +366,19 @@ func editorOpen(filename string) {
 	E.dirty = false
 }
 
-func editorSave() {
+func (E *editorConfig) Save() {
 	if E.filename == "" {
 		E.filename = editorPrompt("Save as: %q", nil)
 		if E.filename == "" {
-			editorSetStatusMessage("Save aborted")
+			E.SetStatusMessage("Save aborted")
 			return
 		}
 		editorSelectSyntaxHighlight()
 	}
-	buf, len := editorRowsToString()
+	buf, len := E.RowsToString()
 	fp,e := os.OpenFile(E.filename, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0644)
 	if e != nil {
-		editorSetStatusMessage("Can't save! file open error %s", e)
+		E.SetStatusMessage("Can't save! file open error %s", e)
 		return
 	}
 	defer fp.Close()
@@ -386,13 +386,13 @@ func editorSave() {
 	if err == nil {
 		if n == len {
 			E.dirty = false
-			editorSetStatusMessage("%d bytes written to disk", len)
+			E.SetStatusMessage("%d bytes written to disk", len)
 		} else {
-			editorSetStatusMessage(fmt.Sprintf("wanted to write %d bytes to file, wrote %d", len, n))
+			E.SetStatusMessage(fmt.Sprintf("wanted to write %d bytes to file, wrote %d", len, n))
 		}
 		return
 	}
-	editorSetStatusMessage("Can't save! I/O error %s", err)
+	E.SetStatusMessage("Can't save! I/O error %s", err)
 }
 
 /*** find ***/
@@ -473,8 +473,8 @@ func editorPrompt(prompt string, callback func([]byte,int)) string {
 	var buf []byte
 
 	for {
-		editorSetStatusMessage(prompt, buf)
-		editorRefreshScreen(&E)
+		E.SetStatusMessage(prompt, buf)
+		E.RefreshScreen()
 
 		c, e := keyboard.ReadKey()
 		if e != nil { die(e) }
@@ -485,14 +485,14 @@ func editorPrompt(prompt string, callback func([]byte,int)) string {
 				buf = buf[:len(buf)-1]
 			}
 		case keyboard.ESCAPE:
-			editorSetStatusMessage("")
+			E.SetStatusMessage("")
 			if callback != nil {
 				callback(buf, c)
 			}
 			return ""
 		case '\r':
 			if len(buf) != 0 {
-				editorSetStatusMessage("")
+				E.SetStatusMessage("")
 				if callback != nil {
 					callback(buf, c)
 				}
@@ -509,7 +509,7 @@ func editorPrompt(prompt string, callback func([]byte,int)) string {
 	}
 }
 
-func editorMoveCursor(key int) {
+func (E *editorConfig) MoveCursor(key int) {
 	switch key {
 	case keyboard.ARROW_LEFT:
 		if E.cx != 0 {
@@ -548,16 +548,16 @@ func editorMoveCursor(key int) {
 
 var quitTimes = KILO_QUIT_TIMES
 
-func editorProcessKeypress() {
+func (E *editorConfig) ProcessKeypress() {
 	c, e := keyboard.ReadKey()
 	if e != nil { die(e) }
 	switch c {
 	case '\r':
-		editorInsertNewLine()
+		E.InsertNewLine()
 		break
 	case keyboard.CTRL_Q:
 		if E.dirty && quitTimes > 0 {
-			editorSetStatusMessage("Warning!!! File has unsaved changes. Press Ctrl-Q %d more times to quit.", quitTimes)
+			E.SetStatusMessage("Warning!!! File has unsaved changes. Press Ctrl-Q %d more times to quit.", quitTimes)
 			quitTimes--
 			return
 		}
@@ -566,7 +566,7 @@ func editorProcessKeypress() {
 		ttyDev.DisableRawMode()
 		os.Exit(0)
 	case keyboard.CTRL_S:
-		editorSave()
+		E.Save()
 	case keyboard.HOME_KEY:
 		E.cx = 0
 	case keyboard.END_KEY:
@@ -576,8 +576,8 @@ func editorProcessKeypress() {
 	case keyboard.CTRL_F:
 		editorFind()
 	case keyboard.CTRL_H, keyboard.BACKSPACE, keyboard.DEL_KEY:
-		if c == keyboard.DEL_KEY { editorMoveCursor(keyboard.ARROW_RIGHT) }
-		editorDelChar()
+		if c == keyboard.DEL_KEY { E.MoveCursor(keyboard.ARROW_RIGHT) }
+		E.DelChar()
 		break
 	case keyboard.PAGE_UP, keyboard.PAGE_DOWN:
 		dir := keyboard.ARROW_DOWN
@@ -589,17 +589,17 @@ func editorProcessKeypress() {
 			if E.cy > E.numRows { E.cy = E.numRows }
 		}
 		for times := E.screenRows; times > 0; times-- {
-			editorMoveCursor(dir)
+			E.MoveCursor(dir)
 		}
 	case keyboard.ARROW_UP, keyboard.ARROW_DOWN,
 		keyboard.ARROW_LEFT, keyboard.ARROW_RIGHT:
-		editorMoveCursor(c)
+		E.MoveCursor(c)
 	case keyboard.CTRL_L:
 		break
 	case keyboard.ESCAPE:
 		break
 	default:
-		editorInsertChar(byte(c))
+		E.InsertChar(byte(c))
 	}
 	quitTimes = KILO_QUIT_TIMES
 }
@@ -627,13 +627,13 @@ func (E *editorConfig) Scroll() {
 	}
 }
 
-func editorRefreshScreen(E *editorConfig) {
+func (E *editorConfig) RefreshScreen() {
 	E.Scroll()
 	ab := bytes.NewBufferString("\x1b[25l")
 	ab.WriteString("\x1b[H")
-	editorDrawRows(ab)
-	editorDrawStatusBar(ab)
-	editorDrawMessageBar(ab)
+	E.DrawRows(ab)
+	E.DrawStatusBar(ab)
+	E.DrawMessageBar(ab)
 	ab.WriteString(fmt.Sprintf("\x1b[%d;%dH", (E.cy - E.rowoff) + 1, (E.rx - E.coloff) + 1))
 	ab.WriteString("\x1b[?25h")
 	_, e := ab.WriteTo(os.Stdout)
@@ -642,7 +642,7 @@ func editorRefreshScreen(E *editorConfig) {
 	}
 }
 
-func editorDrawRows(ab *bytes.Buffer) {
+func (E *editorConfig) DrawRows(ab *bytes.Buffer) {
 	for y := 0; y < E.screenRows; y++ {
 		filerow := y + E.rowoff
 		if filerow >= E.numRows {
@@ -704,7 +704,7 @@ func editorDrawRows(ab *bytes.Buffer) {
 	}
 }
 
-func editorDrawStatusBar(ab *bytes.Buffer) {
+func (E *editorConfig) DrawStatusBar(ab *bytes.Buffer) {
 	ab.WriteString("\x1b[7m")
 	fname := E.filename
 	if fname == "" {
@@ -735,7 +735,7 @@ func editorDrawStatusBar(ab *bytes.Buffer) {
 	ab.WriteString("\r\n")
 }
 
-func editorDrawMessageBar(ab *bytes.Buffer) {
+func (E *editorConfig) DrawMessageBar(ab *bytes.Buffer) {
 	ab.WriteString("\x1b[K")
 	msglen := len(E.statusmsg)
 	if msglen > E.screenCols { msglen = E.screenCols }
@@ -744,14 +744,14 @@ func editorDrawMessageBar(ab *bytes.Buffer) {
 	}
 }
 
-func editorSetStatusMessage(args...interface{}) {
+func (E *editorConfig) SetStatusMessage(args...interface{}) {
 	E.statusmsg = fmt.Sprintf(args[0].(string), args[1:]...)
 	E.statusMsgTime = time.Now()
 }
 
 /*** init ***/
 
-func initEditor() {
+func (E *editorConfig) initEditor() {
 	// Initialization a la C not necessary.
 	var e bool
 	if E.screenRows, E.screenCols, e = screen.GetWindowSize();  !e {
@@ -768,16 +768,16 @@ func main() {
 	ttyDev.EnableRawMode()
 	defer ttyDev.DisableRawMode()
 
-	initEditor()
+	E.initEditor()
 
 	if len(os.Args) > 1 {
-		editorOpen(os.Args[1])
+		E.Open(os.Args[1])
 	}
 
-	editorSetStatusMessage("HELP: Ctrl-S = save | Ctrl-Q = quit | Ctrl-F = find")
+	E.SetStatusMessage("HELP: Ctrl-S = save | Ctrl-Q = quit | Ctrl-F = find")
 
 	for {
-		editorRefreshScreen(&E)
-		editorProcessKeypress()
+		E.RefreshScreen()
+		E.ProcessKeypress()
 	}
 }
