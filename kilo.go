@@ -62,7 +62,7 @@ type editorConfig struct {
 	dirty       bool
 	filename    string
 	statusmsg   string
-	statusmsg_time time.Time
+	statusMsgTime time.Time
     syntax      *editorSyntax
 }
 
@@ -70,7 +70,7 @@ var E editorConfig
 
 /*** filetypes ***/
 
-var HLDB []editorSyntax = []editorSyntax{
+var HLDB = []editorSyntax{
 	editorSyntax{
 		filetype:"c",
 		filematch:[]string{".c", ".h", ".cpp"},
@@ -95,7 +95,7 @@ func die(err error) {
 }
 
 /*** syntax hightlighting ***/
-var separators []byte = []byte(",.()+-/*=~%<>[]; \t\n\r")
+var separators = []byte(",.()+-/*=~%<>[]; \t\n\r")
 func isSeparator(c byte) bool {
 	if bytes.IndexByte(separators, c) >= 0 {
 		return true
@@ -397,8 +397,8 @@ func editorSave() {
 
 /*** find ***/
 
-var lastMatch int = -1
-var direction int = 1
+var lastMatch = -1
+var direction = 1
 var savedHlLine int
 var savedHl []byte
 
@@ -474,7 +474,7 @@ func editorPrompt(prompt string, callback func([]byte,int)) string {
 
 	for {
 		editorSetStatusMessage(prompt, buf)
-		editorRefreshScreen()
+		editorRefreshScreen(&E)
 
 		c, e := keyboard.ReadKey()
 		if e != nil { die(e) }
@@ -546,7 +546,7 @@ func editorMoveCursor(key int) {
 	}
 }
 
-var quitTimes int = KILO_QUIT_TIMES
+var quitTimes = KILO_QUIT_TIMES
 
 func editorProcessKeypress() {
 	c, e := keyboard.ReadKey()
@@ -606,7 +606,7 @@ func editorProcessKeypress() {
 
 /*** output ***/
 
-func editorScroll() {
+func (E *editorConfig) Scroll() {
 	E.rx = 0
 
 	if (E.cy < E.numRows) {
@@ -627,8 +627,8 @@ func editorScroll() {
 	}
 }
 
-func editorRefreshScreen() {
-	editorScroll()
+func editorRefreshScreen(E *editorConfig) {
+	E.Scroll()
 	ab := bytes.NewBufferString("\x1b[25l")
 	ab.WriteString("\x1b[H")
 	editorDrawRows(ab)
@@ -739,14 +739,14 @@ func editorDrawMessageBar(ab *bytes.Buffer) {
 	ab.WriteString("\x1b[K")
 	msglen := len(E.statusmsg)
 	if msglen > E.screenCols { msglen = E.screenCols }
-	if msglen > 0 && (time.Now().Sub(E.statusmsg_time) < 5*time.Second) {
+	if msglen > 0 && (time.Now().Sub(E.statusMsgTime) < 5*time.Second) {
 		ab.WriteString(E.statusmsg)
 	}
 }
 
 func editorSetStatusMessage(args...interface{}) {
 	E.statusmsg = fmt.Sprintf(args[0].(string), args[1:]...)
-	E.statusmsg_time = time.Now()
+	E.statusMsgTime = time.Now()
 }
 
 /*** init ***/
@@ -777,7 +777,7 @@ func main() {
 	editorSetStatusMessage("HELP: Ctrl-S = save | Ctrl-Q = quit | Ctrl-F = find")
 
 	for {
-		editorRefreshScreen()
+		editorRefreshScreen(&E)
 		editorProcessKeypress()
 	}
 }
