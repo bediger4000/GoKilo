@@ -8,6 +8,11 @@ I tried to check in after completing each step, but
 sometimes I combined a few steps,  or fixed bugs between
 steps.
 
+The `idiomatic` branch of this project is an attempt to refactor
+the C-like Go I was left with after finishing the project. I'm trying
+to create packages to separate concerns, and make things more
+idiomatic Go, rather than transliterated C.
+
 # Compare C and Go
 
 I have some experience with C, but I'm learning Go. I'd like
