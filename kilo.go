@@ -243,6 +243,10 @@ func (E *editorConfig) SelectSyntaxHighlight() {
 	}
 }
 
+func (E *editorConfig) AppendRow(s []byte) {
+	E.InsertRow(E.numRows, s)
+}
+
 func (E *editorConfig) InsertRow(at int, s []byte) {
 	if at < 0 || at > E.numRows { return }
 	var r row.Row
@@ -283,7 +287,7 @@ func (E *editorConfig) DelRow(at int) {
 func (E *editorConfig) InsertChar(c byte) {
 	if E.cy == E.numRows {
 		var emptyRow []byte
-		E.InsertRow(E.numRows, emptyRow)
+		E.AppendRow(emptyRow)
 	}
 	E.rows[E.cy].RowInsertChar(E.cx, c)
 	E.UpdateSyntax(E.rows[E.cy])
@@ -335,11 +339,10 @@ func (E *editorConfig) RowsToString() (string, int) {
 	return buf, totlen
 }
 
-func (E *editorConfig) Open(filenames []string) {
+func Open(filenames []string, appendF func([]byte)) (filename string) {
 	if len(filenames) == 1 { return }
-	E.filename = filenames[1]
-	E.SelectSyntaxHighlight()
-	fd, err := os.Open(E.filename)
+	filename = filenames[1]
+	fd, err := os.Open(filename)
 	if err != nil {
 		die(err)
 	}
@@ -354,42 +357,35 @@ func (E *editorConfig) Open(filenames []string) {
 				c = line[len(line) - 1]
 			}
 		}
-		E.InsertRow(E.numRows, line)
+		appendF(line)
 	}
 
 	if err != nil && err != io.EOF {
 		die(err)
 	}
-	E.dirty = false
+
+	return filename
 }
 
-func (E *editorConfig) Save() {
-	if E.filename == "" {
-		E.filename = E.Prompt("Save as: %q", nil)
-		if E.filename == "" {
-			E.SetStatusMessage("Save aborted")
-			return
-		}
-		E.SelectSyntaxHighlight()
-	}
-	buf, len := E.RowsToString()
-	fp,e := os.OpenFile(E.filename, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0644)
+func Save(filename string, getBytes func()(string, int) ) (msg string, stillDirty bool) {
+	fp,e := os.OpenFile(filename, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0644)
 	if e != nil {
-		E.SetStatusMessage("Can't save! file open error %s", e)
-		return
+		return fmt.Sprintf("Can't save! file open error %s", e), true
 	}
 	defer fp.Close()
+	buf, len := getBytes()
+	stillDirty = true
 	n, err := io.WriteString(fp, buf)
 	if err == nil {
 		if n == len {
-			E.dirty = false
-			E.SetStatusMessage("%d bytes written to disk", len)
+			stillDirty = false
+			msg = fmt.Sprintf("%d bytes written to disk", len)
 		} else {
-			E.SetStatusMessage(fmt.Sprintf("wanted to write %d bytes to file, wrote %d", len, n))
+			msg = fmt.Sprintf("wanted to write %d bytes to file, wrote %d", len, n)
 		}
-		return
+		return msg, stillDirty
 	}
-	E.SetStatusMessage("Can't save! I/O error %s", err)
+	return fmt.Sprintf("Can't save! I/O error %s", err), stillDirty
 }
 
 /*** find ***/
@@ -563,7 +559,17 @@ func (E *editorConfig) ProcessKeypress() {
 		ttyDev.DisableRawMode()
 		os.Exit(0)
 	case keyboard.CTRL_S:
-		E.Save()
+		if E.filename == "" {
+			E.filename = E.Prompt("Save as: %q", nil)
+			if E.filename == "" {
+				E.SetStatusMessage("Save aborted")
+				return
+			}
+			E.SelectSyntaxHighlight()
+		}
+		var msg string
+		msg, E.dirty = Save(E.filename, E.RowsToString)
+		E.SetStatusMessage(msg)
 	case keyboard.HOME_KEY:
 		E.cx = 0
 	case keyboard.END_KEY:
@@ -768,7 +774,9 @@ func main() {
 
 	E := initEditor()
 
-	E.Open(os.Args)
+	E.filename = Open(os.Args, E.AppendRow)
+	E.dirty = false
+	E.SelectSyntaxHighlight()
 
 	E.SetStatusMessage("HELP: Ctrl-S = save | Ctrl-Q = quit | Ctrl-F = find")
 
