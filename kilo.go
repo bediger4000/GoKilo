@@ -66,8 +66,6 @@ type editorConfig struct {
     syntax      *editorSyntax
 }
 
-// var E editorConfig
-
 /*** filetypes ***/
 
 var HLDB = []editorSyntax{
@@ -100,12 +98,18 @@ func isSeparator(c byte) bool {
 	return bytes.IndexByte(separators, c) >= 0
 }
 
-func (E *editorConfig) UpdateSyntax(row *row.Row) {
+func (E *editorConfig) UpdateAllSyntax() {
+	for _, row := range E.rows {
+		E.syntax.UpdateSyntax(E, row)
+	}
+}
+
+func (syntax *editorSyntax) UpdateSyntax(E *editorConfig, row *row.Row) {
 	row.Hl = make([]byte, row.Rsize)
-	if E.syntax == nil { return }
-	scs := E.syntax.singleLineCommentStart
-	mcs := E.syntax.multiLineCommentStart
-	mce := E.syntax.multiLineCommentEnd
+	if syntax == nil { return }
+	scs := syntax.singleLineCommentStart
+	mcs := syntax.multiLineCommentStart
+	mce := syntax.multiLineCommentEnd
 	prevSep   := true
 	inComment := row.Idx > 0 && E.rows[row.Idx-1].HlOpenComment
 	var inString byte
@@ -147,7 +151,7 @@ func (E *editorConfig) UpdateSyntax(row *row.Row) {
 		if i > 0 {
 			prevHl = row.Hl[i - 1]
 		}
-		if (E.syntax.flags & HL_HIGHLIGHT_STRINGS) == HL_HIGHLIGHT_STRINGS {
+		if (syntax.flags & HL_HIGHLIGHT_STRINGS) == HL_HIGHLIGHT_STRINGS {
 			if inString != 0 {
 				row.Hl[i] = HL_STRING
 				if c == '\\' && i + 1 < row.Rsize {
@@ -166,7 +170,7 @@ func (E *editorConfig) UpdateSyntax(row *row.Row) {
 				}
 			}
 		}
-		if (E.syntax.flags & HL_HIGHLIGHT_NUMBERS) == HL_HIGHLIGHT_NUMBERS {
+		if (syntax.flags & HL_HIGHLIGHT_NUMBERS) == HL_HIGHLIGHT_NUMBERS {
 			if unicode.IsDigit(rune(c)) &&
 				(prevSep || prevHl == HL_NUMBER) ||
 				(c == '.' && prevHl == HL_NUMBER) {
@@ -178,7 +182,7 @@ func (E *editorConfig) UpdateSyntax(row *row.Row) {
 		if prevSep {
 			var j int
 			var skw string
-			for j, skw = range E.syntax.keywords[:] {
+			for j, skw = range syntax.keywords[:] {
 				kw := []byte(skw)
 				var color byte = HL_KEYWORD1
 				idx := bytes.LastIndexByte(kw, '|')
@@ -197,7 +201,7 @@ func (E *editorConfig) UpdateSyntax(row *row.Row) {
 					break
 				}
 			}
-			if j < len(E.syntax.keywords) - 1 {
+			if j < len(syntax.keywords) - 1 {
 				prevSep = false
 				continue
 			}
@@ -208,7 +212,7 @@ func (E *editorConfig) UpdateSyntax(row *row.Row) {
 	changed := row.HlOpenComment != inComment
 	row.HlOpenComment = inComment
 	if changed && row.Idx + 1 < E.numRows {
-		E.UpdateSyntax(E.rows[row.Idx + 1])
+		E.syntax.UpdateSyntax(E, E.rows[row.Idx + 1])
 	}
 }
 
@@ -269,7 +273,7 @@ func (E *editorConfig) InsertRow(at int, s []byte) {
 	for j := at + 1; j <= E.numRows; j++ { E.rows[j].Idx++ }
 
 	E.rows[at].UpdateRow()
-	E.UpdateSyntax(E.rows[at])
+	E.syntax.UpdateSyntax(E, E.rows[at])
 	E.numRows++
 	E.dirty = true
 }
@@ -290,7 +294,7 @@ func (E *editorConfig) InsertChar(c byte) {
 		E.AppendRow(emptyRow)
 	}
 	E.rows[E.cy].RowInsertChar(E.cx, c)
-	E.UpdateSyntax(E.rows[E.cy])
+	E.syntax.UpdateSyntax(E, E.rows[E.cy])
 	E.dirty = true
 	E.cx++
 }
@@ -303,7 +307,7 @@ func (E *editorConfig) InsertNewLine() {
 		E.rows[E.cy].Chars = E.rows[E.cy].Chars[:E.cx]
 		E.rows[E.cy].Size = len(E.rows[E.cy].Chars)
 		E.rows[E.cy].UpdateRow()
-		E.UpdateSyntax(E.rows[E.cy])
+		E.syntax.UpdateSyntax(E, E.rows[E.cy])
 	}
 	E.cy++
 	E.cx = 0
@@ -314,12 +318,12 @@ func (E *editorConfig) DelChar() {
 	if E.cx == 0 && E.cy == 0 { return }
 	if E.cx > 0 {
     	E.rows[E.cy].RowDelChar(E.cx - 1)
-		E.UpdateSyntax(E.rows[E.cy])
+		E.syntax.UpdateSyntax(E, E.rows[E.cy])
 		E.cx--
 	} else {
 		E.cx = E.rows[E.cy - 1].Size
 		E.rows[E.cy - 1].RowAppendString(E.rows[E.cy].Chars)
-		E.UpdateSyntax(E.rows[E.cy - 1])
+		E.syntax.UpdateSyntax(E, E.rows[E.cy - 1])
 		E.dirty = true
 		E.DelRow(E.cy)
 		E.cy--
@@ -570,6 +574,7 @@ func (E *editorConfig) ProcessKeypress() {
 		var msg string
 		msg, E.dirty = Save(E.filename, E.RowsToString)
 		E.SetStatusMessage(msg)
+		E.UpdateAllSyntax()
 	case keyboard.HOME_KEY:
 		E.cx = 0
 	case keyboard.END_KEY:
@@ -777,6 +782,7 @@ func main() {
 	E.filename = Open(os.Args, E.AppendRow)
 	E.dirty = false
 	E.syntax = SelectSyntaxHighlight(E.filename)
+	if E.syntax != nil { E.UpdateAllSyntax() }
 
 	E.SetStatusMessage("HELP: Ctrl-S = save | Ctrl-Q = quit | Ctrl-F = find")
 
