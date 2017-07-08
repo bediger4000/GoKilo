@@ -230,17 +230,17 @@ func editorSyntaxToColor(hl byte) int {
 	return 37
 }
 
-func (E *editorConfig) SelectSyntaxHighlight() {
-	if E.filename == "" { return }
+func SelectSyntaxHighlight(filename string) (*editorSyntax) {
+	if filename == "" { return nil }
 
 	for _, s := range HLDB {
 		for _, suffix := range s.filematch {
-			if strings.HasSuffix(E.filename, suffix) {
-				E.syntax = &s
-				return
+			if strings.HasSuffix(filename, suffix) {
+				return &s
 			}
 		}
 	}
+	return nil
 }
 
 func (E *editorConfig) AppendRow(s []byte) {
@@ -565,7 +565,7 @@ func (E *editorConfig) ProcessKeypress() {
 				E.SetStatusMessage("Save aborted")
 				return
 			}
-			E.SelectSyntaxHighlight()
+			E.syntax = SelectSyntaxHighlight(E.filename)
 		}
 		var msg string
 		msg, E.dirty = Save(E.filename, E.RowsToString)
@@ -776,7 +776,7 @@ func main() {
 
 	E.filename = Open(os.Args, E.AppendRow)
 	E.dirty = false
-	E.SelectSyntaxHighlight()
+	E.syntax = SelectSyntaxHighlight(E.filename)
 
 	E.SetStatusMessage("HELP: Ctrl-S = save | Ctrl-Q = quit | Ctrl-F = find")
 
