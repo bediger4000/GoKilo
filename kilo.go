@@ -107,8 +107,8 @@ func (E *editorConfig) UpdateAllSyntax() {
 func (E *editorConfig) UpdateSyntax(at int) {
 	inComment := at > 0 && E.rows[at-1].HlOpenComment
 	for at < E.numRows && E.syntax.UpdateSyntax(E.rows[at], inComment)  {
-		inComment = E.rows[at].Idx > 0 && E.rows[at-1].HlOpenComment
 		at++
+		inComment = at > 0 && E.rows[at-1].HlOpenComment
 	}
 }
 
