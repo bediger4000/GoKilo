@@ -99,19 +99,28 @@ func isSeparator(c byte) bool {
 }
 
 func (E *editorConfig) UpdateAllSyntax() {
-	for _, row := range E.rows {
-		E.syntax.UpdateSyntax(E, row)
+	for i, row := range E.rows {
+		E.syntax.UpdateSyntax(row, i > 0 && row.HlOpenComment)
 	}
 }
 
-func (syntax *editorSyntax) UpdateSyntax(E *editorConfig, row *row.Row) {
+func (E *editorConfig) UpdateSyntax(at int) {
+	inComment := at > 0 && E.rows[at-1].HlOpenComment
+	for at < E.numRows && E.syntax.UpdateSyntax(E.rows[at], inComment)  {
+		inComment = E.rows[at].Idx > 0 && E.rows[at-1].HlOpenComment
+		at++
+	}
+}
+
+func (syntax *editorSyntax) UpdateSyntax(row *row.Row, inCommentNow bool) (updateNextRow bool) {
 	row.Hl = make([]byte, row.Rsize)
 	if syntax == nil { return }
+	updateNextRow = false
 	scs := syntax.singleLineCommentStart
 	mcs := syntax.multiLineCommentStart
 	mce := syntax.multiLineCommentEnd
 	prevSep   := true
-	inComment := row.Idx > 0 && E.rows[row.Idx-1].HlOpenComment
+	inComment := inCommentNow
 	var inString byte
 	var skip int
 	for i, c := range row.Render {
@@ -209,11 +218,9 @@ func (syntax *editorSyntax) UpdateSyntax(E *editorConfig, row *row.Row) {
 		prevSep = isSeparator(c)
 	}
 
-	changed := row.HlOpenComment != inComment
+	updateNextRow = row.HlOpenComment != inComment
 	row.HlOpenComment = inComment
-	if changed && row.Idx + 1 < E.numRows {
-		E.syntax.UpdateSyntax(E, E.rows[row.Idx + 1])
-	}
+	return updateNextRow
 }
 
 func editorSyntaxToColor(hl byte) int {
@@ -273,7 +280,7 @@ func (E *editorConfig) InsertRow(at int, s []byte) {
 	for j := at + 1; j <= E.numRows; j++ { E.rows[j].Idx++ }
 
 	E.rows[at].UpdateRow()
-	E.syntax.UpdateSyntax(E, E.rows[at])
+	E.UpdateSyntax(at)
 	E.numRows++
 	E.dirty = true
 }
@@ -294,7 +301,7 @@ func (E *editorConfig) InsertChar(c byte) {
 		E.AppendRow(emptyRow)
 	}
 	E.rows[E.cy].RowInsertChar(E.cx, c)
-	E.syntax.UpdateSyntax(E, E.rows[E.cy])
+	E.UpdateSyntax(E.cy)
 	E.dirty = true
 	E.cx++
 }
@@ -307,7 +314,7 @@ func (E *editorConfig) InsertNewLine() {
 		E.rows[E.cy].Chars = E.rows[E.cy].Chars[:E.cx]
 		E.rows[E.cy].Size = len(E.rows[E.cy].Chars)
 		E.rows[E.cy].UpdateRow()
-		E.syntax.UpdateSyntax(E, E.rows[E.cy])
+		E.UpdateSyntax(E.cy)
 	}
 	E.cy++
 	E.cx = 0
@@ -318,12 +325,12 @@ func (E *editorConfig) DelChar() {
 	if E.cx == 0 && E.cy == 0 { return }
 	if E.cx > 0 {
     	E.rows[E.cy].RowDelChar(E.cx - 1)
-		E.syntax.UpdateSyntax(E, E.rows[E.cy])
+		E.UpdateSyntax(E.cy)
 		E.cx--
 	} else {
 		E.cx = E.rows[E.cy - 1].Size
 		E.rows[E.cy - 1].RowAppendString(E.rows[E.cy].Chars)
-		E.syntax.UpdateSyntax(E, E.rows[E.cy - 1])
+		E.UpdateSyntax(E.cy - 1)
 		E.dirty = true
 		E.DelRow(E.cy)
 		E.cy--
@@ -674,7 +681,8 @@ func (E *editorConfig) DrawRows(ab *bytes.Buffer) {
 			if length > 0 {
 				if length > E.screenCols { length = E.screenCols }
 				rindex := E.coloff+length
-				hl := E.rows[filerow].Hl[E.coloff:rindex]
+				rw := E.rows[filerow]
+				hl := rw.Hl[E.coloff:rindex]
 				currentColor := -1
 				for j, c := range E.rows[filerow].Render[E.coloff:rindex] {
 					if unicode.IsControl(rune(c)) {
