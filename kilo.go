@@ -18,8 +18,8 @@ import (
 
 /*** defines ***/
 
-const KILO_VERSION = "0.0.1"
-const KILO_QUIT_TIMES = 3
+const kiloVersion = "0.0.1"
+const kiloQuitTimes = 3
 
 /*** data ***/
 
@@ -363,7 +363,7 @@ func (E *editorConfig) MoveCursor(key int) {
 	}
 }
 
-var quitTimes = KILO_QUIT_TIMES
+var quitTimes = kiloQuitTimes
 
 func (E *editorConfig) ProcessKeypress() {
 	c, e := keyboard.ReadKey()
@@ -429,7 +429,7 @@ func (E *editorConfig) ProcessKeypress() {
 	default:
 		E.InsertChar(byte(c))
 	}
-	quitTimes = KILO_QUIT_TIMES
+	quitTimes = kiloQuitTimes
 }
 
 /*** output ***/
@@ -475,7 +475,7 @@ func (E *editorConfig) DrawRows(ab *bytes.Buffer) {
 		filerow := y + E.rowoff
 		if filerow >= E.numRows {
 			if E.numRows == 0 && y == E.screenRows/3 {
-				w := fmt.Sprintf("Kilo editor -- version %s", KILO_VERSION)
+				w := fmt.Sprintf("Kilo editor -- version %s", kiloVersion)
 				if len(w) > E.screenCols {
 					w = w[0:E.screenCols]
 				}

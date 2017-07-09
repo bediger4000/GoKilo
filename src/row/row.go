@@ -10,13 +10,13 @@ type Row struct {
 	HlOpenComment bool
 }
 
-const KILO_TAB_STOP = 8
+const kiloTabStop = 8
 
 func (row *Row) RowCxToRx(cx int) int {
 	rx := 0
 	for j := 0; j < row.Size && j < cx; j++ {
 		if row.Chars[j] == '\t' {
-			rx += ((KILO_TAB_STOP - 1) - (rx % KILO_TAB_STOP))
+			rx += ((kiloTabStop - 1) - (rx % kiloTabStop))
 		}
 		rx++
 	}
@@ -28,7 +28,7 @@ func (row *Row) RowRxToCx(rx int) int {
 	var cx int
 	for cx = 0; cx < row.Size; cx++ {
 		if row.Chars[cx] == '\t' {
-			curRx += (KILO_TAB_STOP - 1) - (curRx % KILO_TAB_STOP)
+			curRx += (kiloTabStop - 1) - (curRx % kiloTabStop)
 		}
 		curRx++
 		if curRx > rx {
@@ -46,14 +46,14 @@ func (row *Row) UpdateRow() {
 		}
 	}
 
-	row.Render = make([]byte, row.Size+tabs*(KILO_TAB_STOP-1))
+	row.Render = make([]byte, row.Size+tabs*(kiloTabStop-1))
 
 	idx := 0
 	for _, c := range row.Chars {
 		if c == '\t' {
 			row.Render[idx] = ' '
 			idx++
-			for (idx % KILO_TAB_STOP) != 0 {
+			for (idx % kiloTabStop) != 0 {
 				row.Render[idx] = ' '
 				idx++
 			}
