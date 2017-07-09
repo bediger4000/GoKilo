@@ -99,8 +99,10 @@ func isSeparator(c byte) bool {
 }
 
 func (E *editorConfig) UpdateAllSyntax() {
-	for i, row := range E.rows {
-		E.syntax.UpdateSyntax(row, i > 0 && row.HlOpenComment)
+	inComment := false
+	for _, row := range E.rows {
+		E.syntax.UpdateSyntax(row, inComment)
+		inComment = row.HlOpenComment;
 	}
 }
 
