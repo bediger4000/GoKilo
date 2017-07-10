@@ -2,8 +2,8 @@ package tty
 
 import (
 	"log"
-	"syscall"
 	"os"
+	"syscall"
 	"unsafe"
 )
 

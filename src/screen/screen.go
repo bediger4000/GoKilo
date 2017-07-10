@@ -2,8 +2,8 @@ package screen
 
 import (
 	"fmt"
-	"log"
 	"io"
+	"log"
 	"os"
 	"syscall"
 	"unsafe"

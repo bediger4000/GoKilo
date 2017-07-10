@@ -8,57 +8,62 @@ import (
 )
 
 const (
-	hlNORMAL     = 0
-	hlCOMMENT    = iota
-	hlMLCOMMENT  = iota
-	hlKEYWORD1   = iota
-	hlKEYWORD2   = iota
-	hlSTRING     = iota
-	hlNUMBER     = iota
-	hlMATCH      = iota
+	HL_NORMAL    = 0
+	HL_COMMENT   = iota
+	HL_MLCOMMENT = iota
+	HL_KEYWORD1  = iota
+	HL_KEYWORD2  = iota
+	HL_STRING    = iota
+	HL_NUMBER    = iota
+	HL_MATCH     = iota
 )
 
 type Syntax struct {
-	Filetype  string
-	filematch []string
-	keywords  []string
-    singleLineCommentStart []byte
-    multiLineCommentStart  []byte
-    multiLineCommentEnd    []byte
-	flags     int
-}
-
-func NormalColored(b byte) bool {
-	if b == hlNORMAL {
-		return true
-	}
-	return false
-}
-
-func MatchColor() byte {
-	return hlMATCH
+	Filetype               string
+	filematch              []string
+	keywords               []string
+	singleLineCommentStart []byte
+	multiLineCommentStart  []byte
+	multiLineCommentEnd    []byte
+	flags                  int
 }
 
 var hldb = []Syntax{
-	Syntax{
-		Filetype:"c",
-		filematch:[]string{".c", ".h", ".cpp"},
-		keywords:[]string{"switch", "if", "while", "for",
+	{
+		Filetype:  "c",
+		filematch: []string{".c", ".h", ".cpp"},
+		keywords: []string{"switch", "if", "while", "for",
 			"break", "continue", "return", "else", "struct",
 			"union", "typedef", "static", "enum", "class", "case",
 			"int|", "long|", "double|", "float|", "char|",
 			"unsigned|", "signed|", "void|",
 		},
-		singleLineCommentStart:[]byte{'/', '/'},
-		multiLineCommentStart:[]byte{'/', '*'},
-		multiLineCommentEnd:[]byte{'*', '/'},
-		flags:hlHIGHLIGHT_NUMBERS|hlHIGHLIGHT_STRINGS,
+		singleLineCommentStart: []byte{'/', '/'},
+		multiLineCommentStart:  []byte{'/', '*'},
+		multiLineCommentEnd:    []byte{'*', '/'},
+		flags:                  HL_HIGHLIGHT_NUMBERS | HL_HIGHLIGHT_STRINGS,
+	},
+	{
+		Filetype:  "Go",
+		filematch: []string{".go"},
+		keywords: []string{"switch", "if", "for", "select",
+			"break", "continue", "return", "else", "struct",
+			"type", "case", "select", "func", "var", "import",
+			"const",
+			"int|", "long|", "double|", "float|", "char|", "byte|",
+			"unsigned|", "signed|", "string|", "chan|", "bool|",
+			"rune|",
+		},
+		singleLineCommentStart: []byte{'/', '/'},
+		multiLineCommentStart:  []byte{'/', '*'},
+		multiLineCommentEnd:    []byte{'*', '/'},
+		flags:                  HL_HIGHLIGHT_NUMBERS | HL_HIGHLIGHT_STRINGS,
 	},
 }
 
 const (
-	hlHIGHLIGHT_NUMBERS = 1 << 0
-	hlHIGHLIGHT_STRINGS = 1 << iota
+	HL_HIGHLIGHT_NUMBERS = 1 << 0
+	HL_HIGHLIGHT_STRINGS = 1 << iota
 )
 
 var separators = []byte(",.()+-/*=~%<>[]; \t\n\r")
@@ -69,12 +74,14 @@ func isSeparator(c byte) bool {
 
 func (syntax *Syntax) UpdateSyntax(row *row.Row, inCommentNow bool) (updateNextRow bool) {
 	row.Hl = make([]byte, row.Rsize)
-	if syntax == nil { return }
+	if syntax == nil {
+		return
+	}
 	updateNextRow = false
 	scs := syntax.singleLineCommentStart
 	mcs := syntax.multiLineCommentStart
 	mce := syntax.multiLineCommentEnd
-	prevSep   := true
+	prevSep := true
 	inComment := inCommentNow
 	var inString byte
 	var skip int
@@ -86,17 +93,17 @@ func (syntax *Syntax) UpdateSyntax(row *row.Row, inCommentNow bool) (updateNextR
 		if inString == 0 && len(scs) > 0 && !inComment {
 			if bytes.HasPrefix(row.Render[i:], scs) {
 				for j := i; j < row.Rsize; j++ {
-					row.Hl[j] = hlCOMMENT
+					row.Hl[j] = HL_COMMENT
 				}
 				break
 			}
 		}
 		if inString == 0 && len(mcs) > 0 && len(mce) > 0 {
 			if inComment {
-				row.Hl[i] = hlMLCOMMENT
+				row.Hl[i] = HL_MLCOMMENT
 				if bytes.HasPrefix(row.Render[i:], mce) {
-					for l := i; l < i + len(mce); l++ {
-						row.Hl[l] = hlMLCOMMENT
+					for l := i; l < i+len(mce); l++ {
+						row.Hl[l] = HL_MLCOMMENT
 					}
 					skip = len(mce)
 					inComment = false
@@ -104,41 +111,43 @@ func (syntax *Syntax) UpdateSyntax(row *row.Row, inCommentNow bool) (updateNextR
 				}
 				continue
 			} else if bytes.HasPrefix(row.Render[i:], mcs) {
-				for l := i; l < i + len(mcs); l++ {
-					row.Hl[l] = hlMLCOMMENT
+				for l := i; l < i+len(mcs); l++ {
+					row.Hl[l] = HL_MLCOMMENT
 				}
 				inComment = true
 				skip = len(mcs)
 			}
 		}
-		var prevHl byte = hlNORMAL
+		var prevHl byte = HL_NORMAL
 		if i > 0 {
-			prevHl = row.Hl[i - 1]
+			prevHl = row.Hl[i-1]
 		}
-		if (syntax.flags & hlHIGHLIGHT_STRINGS) == hlHIGHLIGHT_STRINGS {
+		if (syntax.flags & HL_HIGHLIGHT_STRINGS) == HL_HIGHLIGHT_STRINGS {
 			if inString != 0 {
-				row.Hl[i] = hlSTRING
-				if c == '\\' && i + 1 < row.Rsize {
-					row.Hl[i+1] = hlSTRING
+				row.Hl[i] = HL_STRING
+				if c == '\\' && i+1 < row.Rsize {
+					row.Hl[i+1] = HL_STRING
 					skip = 1
 					continue
 				}
-				if c == inString { inString = 0 }
+				if c == inString {
+					inString = 0
+				}
 				prevSep = true
 				continue
 			} else {
 				if c == '"' || c == '\'' {
 					inString = c
-					row.Hl[i] = hlSTRING
+					row.Hl[i] = HL_STRING
 					continue
 				}
 			}
 		}
-		if (syntax.flags & hlHIGHLIGHT_NUMBERS) == hlHIGHLIGHT_NUMBERS {
+		if (syntax.flags & HL_HIGHLIGHT_NUMBERS) == HL_HIGHLIGHT_NUMBERS {
 			if unicode.IsDigit(rune(c)) &&
-				(prevSep || prevHl == hlNUMBER) ||
-				(c == '.' && prevHl == hlNUMBER) {
-				row.Hl[i] = hlNUMBER
+				(prevSep || prevHl == HL_NUMBER) ||
+				(c == '.' && prevHl == HL_NUMBER) {
+				row.Hl[i] = HL_NUMBER
 				prevSep = false
 				continue
 			}
@@ -148,16 +157,16 @@ func (syntax *Syntax) UpdateSyntax(row *row.Row, inCommentNow bool) (updateNextR
 			var skw string
 			for j, skw = range syntax.keywords[:] {
 				kw := []byte(skw)
-				var color byte = hlKEYWORD1
+				var color byte = HL_KEYWORD1
 				idx := bytes.LastIndexByte(kw, '|')
 				if idx > 0 {
 					kw = kw[:idx]
-					color = hlKEYWORD2
+					color = HL_KEYWORD2
 				}
 				klen := len(kw)
 				if bytes.HasPrefix(row.Render[i:], kw) &&
 					(len(row.Render[i:]) == klen ||
-					isSeparator(row.Render[i+klen])) {
+						isSeparator(row.Render[i+klen])) {
 					for l := i; l < i+klen; l++ {
 						row.Hl[l] = color
 					}
@@ -165,7 +174,7 @@ func (syntax *Syntax) UpdateSyntax(row *row.Row, inCommentNow bool) (updateNextR
 					break
 				}
 			}
-			if j < len(syntax.keywords) - 1 {
+			if j < len(syntax.keywords)-1 {
 				prevSep = false
 				continue
 			}
@@ -180,24 +189,26 @@ func (syntax *Syntax) UpdateSyntax(row *row.Row, inCommentNow bool) (updateNextR
 
 func SyntaxToColor(hl byte) int {
 	switch hl {
-	case hlCOMMENT, hlMLCOMMENT:
+	case HL_COMMENT, HL_MLCOMMENT:
 		return 36
-	case hlKEYWORD1:
+	case HL_KEYWORD1:
 		return 32
-	case hlKEYWORD2:
+	case HL_KEYWORD2:
 		return 33
-	case hlSTRING:
+	case HL_STRING:
 		return 35
-	case hlNUMBER:
+	case HL_NUMBER:
 		return 31
-	case hlMATCH:
+	case HL_MATCH:
 		return 34
 	}
 	return 37
 }
 
-func SelectSyntaxHighlight(filename string) (*Syntax) {
-	if filename == "" { return nil }
+func SelectSyntaxHighlight(filename string) *Syntax {
+	if filename == "" {
+		return nil
+	}
 
 	for _, s := range hldb {
 		for _, suffix := range s.filematch {

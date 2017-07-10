@@ -15,11 +15,11 @@ const (
 	END_KEY     = 1000 + iota
 	PAGE_UP     = 1000 + iota
 	PAGE_DOWN   = 1000 + iota
-    CTRL_H      = 'h' & 0x1f
-    CTRL_L      = 'l' & 0x1f
-    CTRL_F      = 'f' & 0x1f
-    CTRL_Q      = 'q' & 0x1f
-    CTRL_S      = 's' & 0x1f
+	CTRL_H      = 'h' & 0x1f
+	CTRL_L      = 'l' & 0x1f
+	CTRL_F      = 'f' & 0x1f
+	CTRL_Q      = 'q' & 0x1f
+	CTRL_S      = 's' & 0x1f
 	ESCAPE      = '\x1b'
 )
 

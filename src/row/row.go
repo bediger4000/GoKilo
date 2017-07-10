@@ -85,7 +85,9 @@ func (row *Row) RowInsertChar(at int, c byte) {
 }
 
 func (row *Row) RowDelChar(at int) {
-	if at < 0 || at > row.Size { return }
+	if at < 0 || at > row.Size {
+		return
+	}
 	row.Chars = append(row.Chars[:at], row.Chars[at+1:]...)
 	row.Size--
 	row.UpdateRow()
