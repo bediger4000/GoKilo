@@ -23,6 +23,8 @@ const (
 	ESCAPE      = '\x1b'
 )
 
+// ReadKey reads a possibly multi-byte keypress from stdin, returning an
+// int (the const values above) that represents the keypress.
 func ReadKey() (int, error) {
 	var buffer [1]byte
 	var cc int
@@ -40,7 +42,7 @@ func ReadKey() (int, error) {
 
 		if seq[0] == '[' {
 			if seq[1] >= '0' && seq[1] <= '9' {
-				if cc, err = os.Stdin.Read(buffer[:]); cc != 1 {
+				if cc, _ = os.Stdin.Read(buffer[:]); cc != 1 {
 					return '\x1b', nil
 				}
 				if buffer[0] == '~' {
