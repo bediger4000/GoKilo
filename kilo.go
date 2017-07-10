@@ -1,8 +1,8 @@
 package main
 
 import (
-	"bufio"
 	"bytes"
+	"filemgt"
 	"fmt"
 	"highlighter"
 	"io"
@@ -173,57 +173,6 @@ func (E *editorConfig) RowsToString() (string, int) {
 		buf += string(row.Chars) + "\n"
 	}
 	return buf, totlen
-}
-
-func Open(filenames []string, appendF func([]byte)) (filename string) {
-	if len(filenames) == 1 {
-		return
-	}
-	filename = filenames[1]
-	fd, err := os.Open(filename)
-	if err != nil {
-		die(err)
-	}
-	defer fd.Close()
-	fp := bufio.NewReader(fd)
-
-	for line, err := fp.ReadBytes('\n'); err == nil; line, err = fp.ReadBytes('\n') {
-		// Trim trailing newlines and carriage returns
-		for c := line[len(line)-1]; len(line) > 0 && (c == '\n' || c == '\r'); {
-			line = line[:len(line)-1]
-			if len(line) > 0 {
-				c = line[len(line)-1]
-			}
-		}
-		appendF(line)
-	}
-
-	if err != nil && err != io.EOF {
-		die(err)
-	}
-
-	return filename
-}
-
-func Save(filename string, getBytes func() (string, int)) (msg string, stillDirty bool) {
-	fp, e := os.OpenFile(filename, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0644)
-	if e != nil {
-		return fmt.Sprintf("Can't save! file open error %s", e), true
-	}
-	defer fp.Close()
-	buf, len := getBytes()
-	stillDirty = true
-	n, err := io.WriteString(fp, buf)
-	if err == nil {
-		if n == len {
-			stillDirty = false
-			msg = fmt.Sprintf("%d bytes written to disk", len)
-		} else {
-			msg = fmt.Sprintf("wanted to write %d bytes to file, wrote %d", len, n)
-		}
-		return msg, stillDirty
-	}
-	return fmt.Sprintf("Can't save! I/O error %s", err), stillDirty
 }
 
 /*** find ***/
@@ -412,7 +361,7 @@ func (E *editorConfig) ProcessKeypress() {
 			E.syntax = highlighter.SelectSyntaxHighlight(E.filename)
 		}
 		var msg string
-		msg, E.dirty = Save(E.filename, E.RowsToString)
+		msg, E.dirty = filemgt.Save(E.filename, E.RowsToString)
 		E.SetStatusMessage(msg)
 		E.UpdateAllSyntax()
 	case keyboard.HOME_KEY:
@@ -634,7 +583,11 @@ func main() {
 
 	E := initEditor()
 
-	E.filename = Open(os.Args, E.AppendRow)
+	var err error
+	E.filename, err = filemgt.Open(os.Args, E.AppendRow)
+	if err != nil {
+		fmt.Printf("%s\n", err)
+	}
 	E.dirty = false
 	E.syntax = highlighter.SelectSyntaxHighlight(E.filename)
 	E.UpdateAllSyntax()
