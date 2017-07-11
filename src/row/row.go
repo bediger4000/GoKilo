@@ -1,7 +1,7 @@
 package row
 
 type Row struct {
-	Idx           int
+//	Idx           int
 	Size          int
 	Rsize         int
 	Chars         []byte

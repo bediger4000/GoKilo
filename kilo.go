@@ -78,7 +78,7 @@ func (E *editorConfig) InsertRow(at int, s []byte) {
 	var r row.Row
 	r.Chars = s
 	r.Size = len(s)
-	r.Idx = at
+//	r.Idx = at
 
 	if at == 0 {
 		t := make([]*row.Row, 1)
@@ -92,9 +92,11 @@ func (E *editorConfig) InsertRow(at int, s []byte) {
 		E.rows = append(E.rows[:at], append(t, E.rows[at:]...)...)
 	}
 
+/*
 	for j := at + 1; j <= E.numRows; j++ {
 		E.rows[j].Idx++
 	}
+*/
 
 	E.rows[at].UpdateRow()
 	E.UpdateSyntax(at)
@@ -109,9 +111,11 @@ func (E *editorConfig) DelRow(at int) {
 	E.rows = append(E.rows[:at], E.rows[at+1:]...)
 	E.numRows--
 	E.dirty = true
+/*
 	for j := at; j < E.numRows; j++ {
 		E.rows[j].Idx--
 	}
+*/
 }
 
 /*** editor operations ***/
