@@ -17,6 +17,8 @@ type termios struct {
 	Ospeed uint32
 }
 
+// Ttty covers the unexported real tty info in
+// a termios struct.
 type Tty struct {
 	original *termios
 }
@@ -37,6 +39,9 @@ func tcGetAttr(fd uintptr) *termios {
 	return termios
 }
 
+// EnableRawMode changes tty settings so that the program can control
+// cursor position etc, and so that the program only blocks for a short
+// while when reading bytes from stdin.
 func (t *Tty) EnableRawMode() {
 	t.original = tcGetAttr(os.Stdin.Fd())
 	var raw termios
@@ -52,6 +57,8 @@ func (t *Tty) EnableRawMode() {
 	}
 }
 
+// DisableRawMode resets tty termios attributes to what they
+// were originally.
 func (t *Tty) DisableRawMode() {
 	if e := tcSetAttr(os.Stdin.Fd(), t.original); e != nil {
 		log.Fatalf("Problem disabling raw mode: %s\n", e)
