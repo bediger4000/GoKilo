@@ -7,6 +7,10 @@ import (
 	"unicode"
 )
 
+// Highlight types. Each byte in Row.Render gets assigned
+// one of these values, stored in Row.Hl. Used to decide
+// what VT-100 escape sequence to print out when displaying
+// bytes to screen.
 const (
 	HL_NORMAL    = 0
 	HL_COMMENT   = iota
@@ -18,7 +22,7 @@ const (
 	HL_MATCH     = iota
 )
 
-// Syntax instances hold substrings used to do simple 
+// Syntax instances hold substrings used to do simple
 // "syntax coloring" of a file under edit.
 type Syntax struct {
 	Filetype               string
