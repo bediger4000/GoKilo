@@ -18,6 +18,8 @@ const (
 	HL_MATCH     = iota
 )
 
+// Syntax instances hold substrings used to do simple 
+// "syntax coloring" of a file under edit.
 type Syntax struct {
 	Filetype               string
 	filematch              []string
@@ -72,6 +74,9 @@ func isSeparator(c byte) bool {
 	return bytes.IndexByte(separators, c) >= 0
 }
 
+// UpdateSyntax fills in the Row.Hl element with numbers that
+// constitute the color the byte with the same index in Row.Render
+// should have when displayed.
 func (syntax *Syntax) UpdateSyntax(row *row.Row, inCommentNow bool) (updateNextRow bool) {
 	row.Hl = make([]byte, row.Rsize)
 	if syntax == nil {
@@ -187,6 +192,8 @@ func (syntax *Syntax) UpdateSyntax(row *row.Row, inCommentNow bool) (updateNextR
 	return updateNextRow
 }
 
+// SyntaxToColor maps byte values from Row.Hl to the color numbers
+// used in VT-100 escape sequences.
 func SyntaxToColor(hl byte) int {
 	switch hl {
 	case HL_COMMENT, HL_MLCOMMENT:
@@ -205,6 +212,8 @@ func SyntaxToColor(hl byte) int {
 	return 37
 }
 
+// SelectSyntaxHighlight selects an element of array hldb (*Syntax)
+// based on the suffix of the filename argument.
 func SelectSyntaxHighlight(filename string) *Syntax {
 	if filename == "" {
 		return nil
