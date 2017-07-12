@@ -17,7 +17,7 @@ type termios struct {
 	Ospeed uint32
 }
 
-// Ttty covers the unexported real tty info in
+// Tty covers the unexported real tty info in
 // a termios struct.
 type Tty struct {
 	original *termios
