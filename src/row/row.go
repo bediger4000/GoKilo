@@ -26,7 +26,7 @@ func (row *Row) RowCxToRx(cx int) int {
 	return rx
 }
 
-// RowCxToRx translates rendered position in the line to
+// RowRxToCx translates rendered position in the line to
 // "in-file" position in the line.
 func (row *Row) RowRxToCx(rx int) int {
 	curRx := 0
