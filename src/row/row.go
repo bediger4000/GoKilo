@@ -71,6 +71,7 @@ func (row *Row) UpdateRow() {
 	}
 	row.Rsize = idx
 	row.Render = row.Render[0:idx]
+	row.Hl = make([]byte, row.Rsize)
 }
 
 // RowInsertChar puts byte argument c into a line, position at
