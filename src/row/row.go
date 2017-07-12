@@ -1,7 +1,8 @@
 package row
 
+// Row instances represent a line of text in the file
+// under edit.
 type Row struct {
-//	Idx           int
 	Size          int
 	Rsize         int
 	Chars         []byte
@@ -12,6 +13,8 @@ type Row struct {
 
 const kiloTabStop = 8
 
+// RowCxToRx translates "in-file" position in the line to
+// rendered position in the line.
 func (row *Row) RowCxToRx(cx int) int {
 	rx := 0
 	for j := 0; j < row.Size && j < cx; j++ {
@@ -23,6 +26,8 @@ func (row *Row) RowCxToRx(cx int) int {
 	return rx
 }
 
+// RowCxToRx translates rendered position in the line to
+// "in-file" position in the line.
 func (row *Row) RowRxToCx(rx int) int {
 	curRx := 0
 	var cx int
@@ -38,6 +43,8 @@ func (row *Row) RowRxToCx(rx int) int {
 	return cx
 }
 
+// UpdateRow creates the "rendered" version of a row, which is the
+// bytes displayed on-screen.
 func (row *Row) UpdateRow() {
 	tabs := 0
 	for _, c := range row.Chars {
@@ -66,6 +73,7 @@ func (row *Row) UpdateRow() {
 	row.Render = row.Render[0:idx]
 }
 
+// RowInsertChar puts byte argument c into a line, position at
 func (row *Row) RowInsertChar(at int, c byte) {
 	if at < 0 || at > row.Size {
 		row.Chars = append(row.Chars, c)
@@ -84,6 +92,7 @@ func (row *Row) RowInsertChar(at int, c byte) {
 	row.UpdateRow()
 }
 
+// RowDelChar deletes the byte at position at
 func (row *Row) RowDelChar(at int) {
 	if at < 0 || at > row.Size {
 		return
@@ -93,6 +102,8 @@ func (row *Row) RowDelChar(at int) {
 	row.UpdateRow()
 }
 
+// RowAppendString adds an array-of-byte to the end of the in-memory
+// representation of a text file.
 func (row *Row) RowAppendString(s []byte) {
 	row.Chars = append(row.Chars, s...)
 	row.Size = len(row.Chars)
