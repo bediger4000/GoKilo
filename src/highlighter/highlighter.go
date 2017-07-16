@@ -124,7 +124,7 @@ func (syntax *Syntax) UpdateSyntax(row *row.Row, inCommentNow bool) (updateNextR
 					row.Hl[l] = HL_MLCOMMENT
 				}
 				inComment = true
-				skip = len(mcs)
+				skip = len(mcs) - 1
 			}
 		}
 		var prevHl byte = HL_NORMAL
