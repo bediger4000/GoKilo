@@ -17,7 +17,7 @@ func Open(filenames []string, appendF func([]byte)) (string, error) {
 	filename := filenames[1]
 	fd, er := os.Open(filename)
 	if er != nil {
-		return "", er
+		return filename, er
 	}
 	defer fd.Close()
 	fp := bufio.NewReader(fd)
