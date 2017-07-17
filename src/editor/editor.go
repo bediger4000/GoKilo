@@ -19,6 +19,9 @@ import (
 const kiloVersion = "0.0.2"
 const kiloQuitTimes = 3
 
+// Editor instances keep track of several things right now,
+// from cursor coords inside of file to screen size to
+// file name read from or to save to. Probably needs refactoring.
 type Editor struct {
 	cx            int
 	cy            int
@@ -36,6 +39,8 @@ type Editor struct {
 	syntax        *highlighter.Syntax
 }
 
+// UpdateAllSyntax redoes all the syntax highlighting, for
+// every line in the edited file.
 func (E *Editor) UpdateAllSyntax() {
 	E.syntax = highlighter.SelectSyntaxHighlight(E.Filename)
 	inComment := false
