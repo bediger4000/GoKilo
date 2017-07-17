@@ -58,11 +58,13 @@ func (E *Editor) updateSyntax(at int) {
 	}
 }
 
+// AppendRow puts a line of text from the edited file
+// at the end of the internal representation of the file.
 func (E *Editor) AppendRow(s []byte) {
-	E.InsertRow(E.numRows, s)
+	E.insertRow(E.numRows, s)
 }
 
-func (E *Editor) InsertRow(at int, s []byte) {
+func (E *Editor) insertRow(at int, s []byte) {
 	if at < 0 || at > E.numRows {
 		return
 	}
@@ -110,9 +112,9 @@ func (E *Editor) InsertChar(c byte) {
 
 func (E *Editor) InsertNewLine() {
 	if E.cx == 0 {
-		E.InsertRow(E.cy, make([]byte, 0))
+		E.insertRow(E.cy, make([]byte, 0))
 	} else {
-		E.InsertRow(E.cy+1, E.rows[E.cy].Chars[E.cx:])
+		E.insertRow(E.cy+1, E.rows[E.cy].Chars[E.cx:])
 		E.rows[E.cy].Chars = E.rows[E.cy].Chars[:E.cx]
 		E.rows[E.cy].Size = len(E.rows[E.cy].Chars)
 		E.rows[E.cy].UpdateRow()
