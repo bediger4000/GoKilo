@@ -110,7 +110,7 @@ func (E *Editor) insertChar(c byte) {
 	E.cx++
 }
 
-func (E *Editor) InsertNewLine() {
+func (E *Editor) insertNewLine() {
 	if E.cx == 0 {
 		E.insertRow(E.cy, make([]byte, 0))
 	} else {
@@ -321,7 +321,7 @@ func (E *Editor) ProcessKeypress() (bool, error) {
 	}
 	switch c {
 	case '\r':
-		E.InsertNewLine()
+		E.insertNewLine()
 		break
 	case keyboard.CTRL_Q:
 		if E.Dirty && quitTimes > 0 {
