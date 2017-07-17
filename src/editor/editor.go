@@ -551,6 +551,7 @@ func (E *Editor) SetStatusMessage(args ...interface{}) {
 
 /*** init ***/
 
+// NewEditor creates an instance of Editor, fresh and ready to go.
 func NewEditor() (*Editor, error) {
 	var ec Editor
 	var e bool
