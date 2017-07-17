@@ -435,67 +435,75 @@ func (E *Editor) RefreshScreen() {
 	}
 }
 
+func (E *Editor) padRow(ab *bytes.Buffer) {
+	w := fmt.Sprintf("Kilo editor -- version %s", kiloVersion)
+	if len(w) > E.screenCols {
+		w = w[0:E.screenCols]
+	}
+	pad := "~ "
+	for padding := (E.screenCols - len(w)) / 2; padding > 0; padding-- {
+		ab.WriteString(pad)
+		pad = " "
+	}
+	ab.WriteString(w)
+}
+
+func (E *Editor) ordinaryRow(filerow int, ab *bytes.Buffer) {
+	length := E.rows[filerow].Rsize - E.coloff
+	if length < 0 {
+		length = 0
+	}
+	if length > 0 {
+		if length > E.screenCols {
+			length = E.screenCols
+		}
+		rindex := E.coloff + length
+		rw := E.rows[filerow]
+		hl := rw.Hl[E.coloff:rindex]
+		currentColor := -1
+		for j, c := range E.rows[filerow].Render[E.coloff:rindex] {
+			if unicode.IsControl(rune(c)) {
+				ab.WriteString("\x1b[7m")
+				if c < 26 {
+					ab.WriteString("@")
+				} else {
+					ab.WriteString("?")
+				}
+				ab.WriteString("\x1b[m")
+				if currentColor != -1 {
+					ab.WriteString(fmt.Sprintf("\x1b[%dm", currentColor))
+				}
+			} else if hl[j] == highlighter.HL_NORMAL {
+				if currentColor != -1 {
+					ab.WriteString("\x1b[39m")
+					currentColor = -1
+				}
+				ab.WriteByte(c)
+			} else {
+				color := highlighter.SyntaxToColor(hl[j])
+				if color != currentColor {
+					currentColor = color
+					buf := fmt.Sprintf("\x1b[%dm", color)
+					ab.WriteString(buf)
+				}
+				ab.WriteByte(c)
+			}
+		}
+		ab.WriteString("\x1b[39m")
+	}
+}
+
 func (E *Editor) drawRows(ab *bytes.Buffer) {
 	for y := 0; y < E.screenRows; y++ {
 		filerow := y + E.rowoff
 		if filerow >= E.numRows {
 			if E.numRows == 0 && y == E.screenRows/3 {
-				w := fmt.Sprintf("Kilo editor -- version %s", kiloVersion)
-				if len(w) > E.screenCols {
-					w = w[0:E.screenCols]
-				}
-				pad := "~ "
-				for padding := (E.screenCols - len(w)) / 2; padding > 0; padding-- {
-					ab.WriteString(pad)
-					pad = " "
-				}
-				ab.WriteString(w)
+				E.padRow(ab)
 			} else {
 				ab.WriteString("~")
 			}
 		} else {
-			length := E.rows[filerow].Rsize - E.coloff
-			if length < 0 {
-				length = 0
-			}
-			if length > 0 {
-				if length > E.screenCols {
-					length = E.screenCols
-				}
-				rindex := E.coloff + length
-				rw := E.rows[filerow]
-				hl := rw.Hl[E.coloff:rindex]
-				currentColor := -1
-				for j, c := range E.rows[filerow].Render[E.coloff:rindex] {
-					if unicode.IsControl(rune(c)) {
-						ab.WriteString("\x1b[7m")
-						if c < 26 {
-							ab.WriteString("@")
-						} else {
-							ab.WriteString("?")
-						}
-						ab.WriteString("\x1b[m")
-						if currentColor != -1 {
-							ab.WriteString(fmt.Sprintf("\x1b[%dm", currentColor))
-						}
-					} else if hl[j] == highlighter.HL_NORMAL {
-						if currentColor != -1 {
-							ab.WriteString("\x1b[39m")
-							currentColor = -1
-						}
-						ab.WriteByte(c)
-					} else {
-						color := highlighter.SyntaxToColor(hl[j])
-						if color != currentColor {
-							currentColor = color
-							buf := fmt.Sprintf("\x1b[%dm", color)
-							ab.WriteString(buf)
-						}
-						ab.WriteByte(c)
-					}
-				}
-				ab.WriteString("\x1b[39m")
-			}
+			E.ordinaryRow(filerow, ab)
 		}
 		ab.WriteString("\x1b[K")
 		ab.WriteString("\r\n")
