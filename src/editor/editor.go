@@ -124,7 +124,7 @@ func (E *Editor) insertNewLine() {
 	E.cx = 0
 }
 
-func (E *Editor) DelChar() {
+func (E *Editor) delChar() {
 	if E.cy == E.numRows {
 		return
 	}
@@ -146,7 +146,7 @@ func (E *Editor) DelChar() {
 	E.Dirty = true
 }
 
-func (E *Editor) RowsToString() (string, int) {
+func (E *Editor) rowsToString() (string, int) {
 	totlen := 0
 	buf := ""
 	for _, row := range E.rows {
@@ -164,7 +164,7 @@ var direction = 1
 var savedHlLine int
 var savedHl []byte
 
-func (E *Editor) FindCallback(qry []byte, key int) {
+func (E *Editor) findCallback(qry []byte, key int) {
 
 	if savedHlLine > 0 {
 		copy(E.rows[savedHlLine].Hl, savedHl)
@@ -221,7 +221,7 @@ func find(E *Editor) {
 	savedCy := E.cy
 	savedColoff := E.coloff
 	savedRowoff := E.rowoff
-	query, _ := E.Prompt("Search: %s (ESC/Arrows/Enter)", E.FindCallback)
+	query, _ := E.prompt("Search: %s (ESC/Arrows/Enter)", E.findCallback)
 	// XXX - what to do with the error return here?
 	if query == "" {
 		E.cx = savedCx
@@ -233,7 +233,7 @@ func find(E *Editor) {
 
 /*** input ***/
 
-func (E *Editor) Prompt(prompt string, callback func([]byte, int)) (string, error) {
+func (E *Editor) prompt(prompt string, callback func([]byte, int)) (string, error) {
 	var buf []byte
 
 	for {
@@ -275,7 +275,7 @@ func (E *Editor) Prompt(prompt string, callback func([]byte, int)) (string, erro
 	}
 }
 
-func (E *Editor) MoveCursor(key int) {
+func (E *Editor) moveCursor(key int) {
 	switch key {
 	case keyboard.ARROW_LEFT:
 		if E.cx != 0 {
@@ -314,6 +314,8 @@ func (E *Editor) MoveCursor(key int) {
 
 var quitTimes = kiloQuitTimes
 
+// ProcessKeypress gets a (possibly mulit-byte) keypress from keyboard, then
+// decides what to do to Editor's internal state based on that byte or bytes.
 func (E *Editor) ProcessKeypress() (bool, error) {
 	c, e := keyboard.ReadKey()
 	if e != nil {
@@ -333,7 +335,7 @@ func (E *Editor) ProcessKeypress() (bool, error) {
 	case keyboard.CTRL_S:
 		if E.Filename == "" {
 			var e error
-			E.Filename, e = E.Prompt("Save as: %q", nil)
+			E.Filename, e = E.prompt("Save as: %q", nil)
 			if E.Filename == "" {
 				E.SetStatusMessage("Save aborted")
 				return true, e
@@ -345,7 +347,7 @@ func (E *Editor) ProcessKeypress() (bool, error) {
 			E.syntax = highlighter.SelectSyntaxHighlight(E.Filename)
 		}
 		var msg string
-		msg, E.Dirty = filemgt.Save(E.Filename, E.RowsToString)
+		msg, E.Dirty = filemgt.Save(E.Filename, E.rowsToString)
 		E.SetStatusMessage(msg)
 		E.UpdateAllSyntax()
 		if E.Dirty {
@@ -361,9 +363,9 @@ func (E *Editor) ProcessKeypress() (bool, error) {
 		find(E)
 	case keyboard.CTRL_H, keyboard.BACKSPACE, keyboard.DEL_KEY:
 		if c == keyboard.DEL_KEY {
-			E.MoveCursor(keyboard.ARROW_RIGHT)
+			E.moveCursor(keyboard.ARROW_RIGHT)
 		}
-		E.DelChar()
+		E.delChar()
 		break
 	case keyboard.PAGE_UP, keyboard.PAGE_DOWN:
 		dir := keyboard.ARROW_DOWN
@@ -377,11 +379,11 @@ func (E *Editor) ProcessKeypress() (bool, error) {
 			}
 		}
 		for times := E.screenRows; times > 0; times-- {
-			E.MoveCursor(dir)
+			E.moveCursor(dir)
 		}
 	case keyboard.ARROW_UP, keyboard.ARROW_DOWN,
 		keyboard.ARROW_LEFT, keyboard.ARROW_RIGHT:
-		E.MoveCursor(c)
+		E.moveCursor(c)
 	case keyboard.CTRL_L:
 		break
 	case keyboard.ESCAPE:
@@ -395,7 +397,7 @@ func (E *Editor) ProcessKeypress() (bool, error) {
 
 /*** output ***/
 
-func (E *Editor) Scroll() {
+func (E *Editor) scroll() {
 	E.rx = 0
 
 	if E.cy < E.numRows {
@@ -416,13 +418,15 @@ func (E *Editor) Scroll() {
 	}
 }
 
+// RefreshScreen resets the entire screen based on the internal
+// state of an Editor object, and its internal file representation.
 func (E *Editor) RefreshScreen() {
-	E.Scroll()
+	E.scroll()
 	ab := bytes.NewBufferString("\x1b[25l")
 	ab.WriteString("\x1b[H")
-	E.DrawRows(ab)
-	E.DrawStatusBar(ab)
-	E.DrawMessageBar(ab)
+	E.drawRows(ab)
+	E.drawStatusBar(ab)
+	E.drawMessageBar(ab)
 	ab.WriteString(fmt.Sprintf("\x1b[%d;%dH", (E.cy-E.rowoff)+1, (E.rx-E.coloff)+1))
 	ab.WriteString("\x1b[?25h")
 	_, e := ab.WriteTo(os.Stdout)
@@ -431,7 +435,7 @@ func (E *Editor) RefreshScreen() {
 	}
 }
 
-func (E *Editor) DrawRows(ab *bytes.Buffer) {
+func (E *Editor) drawRows(ab *bytes.Buffer) {
 	for y := 0; y < E.screenRows; y++ {
 		filerow := y + E.rowoff
 		if filerow >= E.numRows {
@@ -498,7 +502,7 @@ func (E *Editor) DrawRows(ab *bytes.Buffer) {
 	}
 }
 
-func (E *Editor) DrawStatusBar(ab *bytes.Buffer) {
+func (E *Editor) drawStatusBar(ab *bytes.Buffer) {
 	ab.WriteString("\x1b[7m")
 	fname := E.Filename
 	if fname == "" {
@@ -533,7 +537,7 @@ func (E *Editor) DrawStatusBar(ab *bytes.Buffer) {
 	ab.WriteString("\r\n")
 }
 
-func (E *Editor) DrawMessageBar(ab *bytes.Buffer) {
+func (E *Editor) drawMessageBar(ab *bytes.Buffer) {
 	ab.WriteString("\x1b[K")
 	msglen := len(E.statusmsg)
 	if msglen > E.screenCols {
@@ -544,6 +548,9 @@ func (E *Editor) DrawMessageBar(ab *bytes.Buffer) {
 	}
 }
 
+// SetStatusMessage invocations should set the text of
+// the message the user sees for 5 seconds at the bottom
+// of the screen.
 func (E *Editor) SetStatusMessage(args ...interface{}) {
 	E.statusmsg = fmt.Sprintf(args[0].(string), args[1:]...)
 	E.statusMsgTime = time.Now()
