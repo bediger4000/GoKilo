@@ -45,7 +45,7 @@ func (E *Editor) UpdateAllSyntax() {
 	}
 }
 
-func (E *Editor) UpdateSyntax(at int) {
+func (E *Editor) updateSyntax(at int) {
 	inComment := at > 0 && E.rows[at-1].HlOpenComment
 	for at < E.numRows && E.syntax.UpdateSyntax(E.rows[at], inComment) {
 		at++
@@ -78,7 +78,7 @@ func (E *Editor) InsertRow(at int, s []byte) {
 	}
 
 	E.rows[at].UpdateRow()
-	E.UpdateSyntax(at)
+	E.updateSyntax(at)
 	E.numRows++
 	E.Dirty = true
 }
@@ -98,7 +98,7 @@ func (E *Editor) InsertChar(c byte) {
 		E.AppendRow(emptyRow)
 	}
 	E.rows[E.cy].RowInsertChar(E.cx, c)
-	E.UpdateSyntax(E.cy)
+	E.updateSyntax(E.cy)
 	E.Dirty = true
 	E.cx++
 }
@@ -111,7 +111,7 @@ func (E *Editor) InsertNewLine() {
 		E.rows[E.cy].Chars = E.rows[E.cy].Chars[:E.cx]
 		E.rows[E.cy].Size = len(E.rows[E.cy].Chars)
 		E.rows[E.cy].UpdateRow()
-		E.UpdateSyntax(E.cy)
+		E.updateSyntax(E.cy)
 	}
 	E.cy++
 	E.cx = 0
@@ -126,12 +126,12 @@ func (E *Editor) DelChar() {
 	}
 	if E.cx > 0 {
 		E.rows[E.cy].RowDelChar(E.cx - 1)
-		E.UpdateSyntax(E.cy)
+		E.updateSyntax(E.cy)
 		E.cx--
 	} else {
 		E.cx = E.rows[E.cy-1].Size
 		E.rows[E.cy-1].RowAppendString(E.rows[E.cy].Chars)
-		E.UpdateSyntax(E.cy - 1)
+		E.updateSyntax(E.cy - 1)
 		E.Dirty = true
 		E.DelRow(E.cy)
 		E.cy--
