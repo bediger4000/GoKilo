@@ -90,7 +90,7 @@ func (E *Editor) insertRow(at int, s []byte) {
 	E.Dirty = true
 }
 
-func (E *Editor) DelRow(at int) {
+func (E *Editor) delRow(at int) {
 	if at < 0 || at > E.numRows {
 		return
 	}
@@ -99,7 +99,7 @@ func (E *Editor) DelRow(at int) {
 	E.Dirty = true
 }
 
-func (E *Editor) InsertChar(c byte) {
+func (E *Editor) insertChar(c byte) {
 	if E.cy == E.numRows {
 		var emptyRow []byte
 		E.AppendRow(emptyRow)
@@ -140,7 +140,7 @@ func (E *Editor) DelChar() {
 		E.rows[E.cy-1].RowAppendString(E.rows[E.cy].Chars)
 		E.updateSyntax(E.cy - 1)
 		E.Dirty = true
-		E.DelRow(E.cy)
+		E.delRow(E.cy)
 		E.cy--
 	}
 	E.Dirty = true
@@ -387,7 +387,7 @@ func (E *Editor) ProcessKeypress() (bool, error) {
 	case keyboard.ESCAPE:
 		break
 	default:
-		E.InsertChar(byte(c))
+		E.insertChar(byte(c))
 	}
 	quitTimes = kiloQuitTimes
 	return true, nil
