@@ -35,61 +35,80 @@ func ReadKey() (int, error) {
 		return -1, err
 	}
 	if buffer[0] == ESCAPE {
-		var seq [2]byte
-		if cc, _ = os.Stdin.Read(seq[:]); cc != 2 {
-			return ESCAPE, nil
-		}
-
-		if seq[0] == '[' {
-			if seq[1] >= '0' && seq[1] <= '9' {
-				if cc, _ = os.Stdin.Read(buffer[:]); cc != 1 {
-					return '\x1b', nil
-				}
-				if buffer[0] == '~' {
-					switch seq[1] {
-					case '1':
-						return HOME_KEY, nil
-					case '3':
-						return DEL_KEY, nil
-					case '4':
-						return END_KEY, nil
-					case '5':
-						return PAGE_UP, nil
-					case '6':
-						return PAGE_DOWN, nil
-					case '7':
-						return HOME_KEY, nil
-					case '8':
-						return END_KEY, nil
-					}
-				}
-				// XXX - what happens here?
-			} else {
-				switch seq[1] {
-				case 'A':
-					return ARROW_UP, nil
-				case 'B':
-					return ARROW_DOWN, nil
-				case 'C':
-					return ARROW_RIGHT, nil
-				case 'D':
-					return ARROW_LEFT, nil
-				case 'H':
-					return HOME_KEY, nil
-				case 'F':
-					return END_KEY, nil
-				}
-			}
-		} else if seq[0] == '0' {
-			switch seq[1] {
-			case 'H':
-				return HOME_KEY, nil
-			case 'F':
-				return END_KEY, nil
-			}
-		}
-
-		return ESCAPE, nil
+		return readEscapeSequence()
 	}
 	return int(buffer[0]), nil
+}
+
+func arrowKeyDecode(k byte) (int, error) {
+	switch k {
+	case 'A':
+		return ARROW_UP, nil
+	case 'B':
+		return ARROW_DOWN, nil
+	case 'C':
+		return ARROW_RIGHT, nil
+	case 'D':
+		return ARROW_LEFT, nil
+	case 'H':
+		return HOME_KEY, nil
+	case 'F':
+		return END_KEY, nil
+	}
+	return int(k), nil
+}
+
+func tildeDecode(b byte) (int, error) {
+	switch b {
+	case '1':
+		return HOME_KEY, nil
+	case '3':
+		return DEL_KEY, nil
+	case '4':
+		return END_KEY, nil
+	case '5':
+		return PAGE_UP, nil
+	case '6':
+		return PAGE_DOWN, nil
+	case '7':
+		return HOME_KEY, nil
+	case '8':
+		return END_KEY, nil
+	}
+	return int(b), nil
+}
+
+func readEscapeSequence() (int, error) {
+	var seq [2]byte
+	var buffer [1]byte
+	var cc int
+
+	if cc, _ = os.Stdin.Read(seq[:]); cc != 2 {
+		return ESCAPE, nil
+	}
+
+	if seq[0] == '[' {
+		if seq[1] >= '0' && seq[1] <= '9' {
+			if cc, _ = os.Stdin.Read(buffer[:]); cc != 1 {
+				return '\x1b', nil
+			}
+			if buffer[0] == '~' {
+				return tildeDecode(seq[1])
+			}
+			// XXX - falls all the way through
+		} else {
+			return arrowKeyDecode(seq[1])
+		}
+		// XXX - falls all the way through
+	} else if seq[0] == '0' {
+		switch seq[1] {
+		case 'H':
+			return HOME_KEY, nil
+		case 'F':
+			return END_KEY, nil
+		}
+		// XXX - is it correct to fall through?
+	}
+
+	return ESCAPE, nil
 }
