@@ -314,7 +314,7 @@ func (E *Editor) moveCursor(key int) {
 
 var quitTimes = kiloQuitTimes
 
-// ProcessKeypress gets a (possibly mulit-byte) keypress from keyboard, then
+// ProcessKeypress gets a (possibly multi-byte) keypress from keyboard, then
 // decides what to do to Editor's internal state based on that byte or bytes.
 func (E *Editor) ProcessKeypress() (bool, error) {
 	c, e := keyboard.ReadKey()
@@ -337,10 +337,7 @@ func (E *Editor) ProcessKeypress() (bool, error) {
 	case keyboard.CTRL_F:
 		find(E)
 	case keyboard.CTRL_H, keyboard.BACKSPACE, keyboard.DEL_KEY:
-		if c == keyboard.DEL_KEY {
-			E.moveCursor(keyboard.ARROW_RIGHT)
-		}
-		E.delChar()
+		E.deleteSomething(c)
 	case keyboard.PAGE_UP, keyboard.PAGE_DOWN:
 		E.moveScreenful(c)
 	case keyboard.ARROW_UP, keyboard.ARROW_DOWN,
@@ -353,6 +350,13 @@ func (E *Editor) ProcessKeypress() (bool, error) {
 	}
 	quitTimes = kiloQuitTimes
 	return true, nil
+}
+
+func (E *Editor) deleteSomething(c int) {
+	if c == keyboard.DEL_KEY {
+		E.moveCursor(keyboard.ARROW_RIGHT)
+	}
+	E.delChar()
 }
 
 func (E *Editor) processQuit() (bool, error) {
