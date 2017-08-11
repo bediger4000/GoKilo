@@ -324,35 +324,10 @@ func (E *Editor) ProcessKeypress() (bool, error) {
 	switch c {
 	case '\r':
 		E.insertNewLine()
-		break
 	case keyboard.CTRL_Q:
-		if E.Dirty && quitTimes > 0 {
-			E.SetStatusMessage("Warning!!! File has unsaved changes. Press Ctrl-Q %d more times to quit.", quitTimes)
-			quitTimes--
-			return true, nil
-		}
-		return false, nil
+		return E.processQuit()
 	case keyboard.CTRL_S:
-		if E.Filename == "" {
-			var e error
-			E.Filename, e = E.prompt("Save as: %q", nil)
-			if E.Filename == "" {
-				E.SetStatusMessage("Save aborted")
-				return true, e
-			}
-			if e != nil {
-				E.SetStatusMessage("%s", e)
-				E.Filename = ""
-			}
-			E.syntax = highlighter.SelectSyntaxHighlight(E.Filename)
-		}
-		var msg string
-		msg, E.Dirty = filemgt.Save(E.Filename, E.rowsToString)
-		E.SetStatusMessage(msg)
-		E.UpdateAllSyntax()
-		if E.Dirty {
-			E.Filename = ""
-		} // Still dirty? File didn't get written.
+		return E.saveFile()
 	case keyboard.HOME_KEY:
 		E.cx = 0
 	case keyboard.END_KEY:
@@ -366,32 +341,66 @@ func (E *Editor) ProcessKeypress() (bool, error) {
 			E.moveCursor(keyboard.ARROW_RIGHT)
 		}
 		E.delChar()
-		break
 	case keyboard.PAGE_UP, keyboard.PAGE_DOWN:
-		dir := keyboard.ARROW_DOWN
-		if c == keyboard.PAGE_UP {
-			E.cy = E.rowoff
-			dir = keyboard.ARROW_UP
-		} else {
-			E.cy = E.rowoff + E.screenRows - 1
-			if E.cy > E.numRows {
-				E.cy = E.numRows
-			}
-		}
-		for times := E.screenRows; times > 0; times-- {
-			E.moveCursor(dir)
-		}
+		E.moveScreenful(c)
 	case keyboard.ARROW_UP, keyboard.ARROW_DOWN,
 		keyboard.ARROW_LEFT, keyboard.ARROW_RIGHT:
 		E.moveCursor(c)
 	case keyboard.CTRL_L:
-		break
 	case keyboard.ESCAPE:
-		break
 	default:
 		E.insertChar(byte(c))
 	}
 	quitTimes = kiloQuitTimes
+	return true, nil
+}
+
+func (E *Editor) processQuit() (bool, error) {
+	if E.Dirty && quitTimes > 0 {
+		E.SetStatusMessage("Warning!!! File has unsaved changes. Press Ctrl-Q %d more times to quit.", quitTimes)
+		quitTimes--
+		return true, nil
+	}
+	return false, nil
+}
+
+func (E *Editor) moveScreenful(c int) {
+	dir := keyboard.ARROW_DOWN
+	if c == keyboard.PAGE_UP {
+		E.cy = E.rowoff
+		dir = keyboard.ARROW_UP
+	} else {
+		E.cy = E.rowoff + E.screenRows - 1
+		if E.cy > E.numRows {
+			E.cy = E.numRows
+		}
+	}
+	for times := E.screenRows; times > 0; times-- {
+		E.moveCursor(dir)
+	}
+}
+
+func (E *Editor) saveFile() (bool, error) {
+	if E.Filename == "" {
+		var e error
+		E.Filename, e = E.prompt("Save as: %q", nil)
+		if E.Filename == "" {
+			E.SetStatusMessage("Save aborted")
+			return true, e
+		}
+		if e != nil {
+			E.SetStatusMessage("%s", e)
+			E.Filename = ""
+		}
+		E.syntax = highlighter.SelectSyntaxHighlight(E.Filename)
+	}
+	var msg string
+	msg, E.Dirty = filemgt.Save(E.Filename, E.rowsToString)
+	E.SetStatusMessage(msg)
+	E.UpdateAllSyntax()
+	if E.Dirty {
+		E.Filename = ""
+	} // Still dirty? File didn't get written.
 	return true, nil
 }
 
