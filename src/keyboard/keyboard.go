@@ -4,6 +4,9 @@ import (
 	"os"
 )
 
+/* Integer versions of usually single-byte, but
+ * sometimes multi-byte, keypresses.
+ */
 const (
 	BACKSPACE   = 127
 	ARROW_LEFT  = 1000 + iota
