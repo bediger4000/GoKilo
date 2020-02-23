@@ -16,7 +16,7 @@ type winSize struct {
 	ypixel uint16
 }
 
-func getCursorPosition() (rows int, cols int, worked bool) {
+func getCursorPosition() (rows, cols int, worked bool) {
 	io.WriteString(os.Stdout, "\x1b[6n")
 	var buffer [1]byte
 	var buf []byte
@@ -46,7 +46,7 @@ func getCursorPosition() (rows int, cols int, worked bool) {
 // GetWindowSize returns <rows,colums> of the current
 // screen size as ints, and a bool that indicates whether
 // the <rows,cols> are valid or not.
-func GetWindowSize() (rows int, cols int, worked bool) {
+func GetWindowSize() (rows, cols int, worked bool) {
 	var w winSize
 	_, _, err := syscall.Syscall(syscall.SYS_IOCTL,
 		os.Stdout.Fd(),
