@@ -35,8 +35,8 @@ type Syntax struct {
 	flags                  int
 }
 
-var hldb = []Syntax{
-	{
+var hldb = []*Syntax{
+	&Syntax{
 		Filetype:  "c",
 		filematch: []string{".c", ".h", ".cpp"},
 		keywords: []string{"switch", "if", "while", "for",
@@ -50,7 +50,7 @@ var hldb = []Syntax{
 		multiLineCommentEnd:    []byte{'*', '/'},
 		flags:                  HL_HIGHLIGHT_NUMBERS | HL_HIGHLIGHT_STRINGS,
 	},
-	{
+	&Syntax{
 		Filetype:  "Go",
 		filematch: []string{".go"},
 		keywords: []string{"switch", "if", "for", "select",
@@ -225,7 +225,7 @@ func SelectSyntaxHighlight(filename string) *Syntax {
 	for _, s := range hldb {
 		for _, suffix := range s.filematch {
 			if strings.HasSuffix(filename, suffix) {
-				return &s
+				return s
 			}
 		}
 	}
