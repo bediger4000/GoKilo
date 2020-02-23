@@ -148,14 +148,12 @@ func (e *Editor) delChar() {
 	e.Dirty = true
 }
 
-func (e *Editor) rowsToString() (string, int) {
-	totlen := 0
-	buf := ""
-	for _, row := range e.rows {
-		totlen += row.Size + 1
-		buf += string(row.Chars) + "\n"
+func (e *Editor) rowsToString() (buf string, totlen int) {
+	for _, aRow := range e.rows {
+		totlen += aRow.Size + 1
+		buf += string(aRow.Chars) + "\n"
 	}
-	return buf, totlen
+	return
 }
 
 /*** find ***/
@@ -200,19 +198,19 @@ func (e *Editor) findCallback(qry []byte, key int) {
 		} else if current == e.numRows {
 			current = 0
 		}
-		row := e.rows[current]
-		x := bytes.Index(row.Render, qry)
+		thisRow := e.rows[current]
+		x := bytes.Index(thisRow.Render, qry)
 		if x > -1 {
 			lastMatch = current
 			e.cy = current
-			e.cx = row.RowRxToCx(x)
+			e.cx = thisRow.RowRxToCx(x)
 			e.rowoff = e.numRows
 			savedHlLine = current
-			savedHl = make([]byte, row.Rsize)
-			copy(savedHl, row.Hl)
+			savedHl = make([]byte, thisRow.Rsize)
+			copy(savedHl, thisRow.Hl)
 			max := x + len(qry)
 			for i := x; i < max; i++ {
-				row.Hl[i] = highlighter.HL_MATCH
+				thisRow.Hl[i] = highlighter.HL_MATCH
 			}
 			break
 		}
