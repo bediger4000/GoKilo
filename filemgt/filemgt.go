@@ -52,15 +52,15 @@ func Save(filename string, getBytes func() (string, int)) (msg string, stillDirt
 		return fmt.Sprintf("Can't save! file open error %s", e), true
 	}
 	defer fp.Close()
-	buf, len := getBytes()
+	buf, length := getBytes()
 	stillDirty = true
 	n, err := io.WriteString(fp, buf)
 	if err == nil {
-		if n == len {
+		if n == length {
 			stillDirty = false
-			msg = fmt.Sprintf("%d bytes written to disk", len)
+			msg = fmt.Sprintf("%d bytes written to disk", length)
 		} else {
-			msg = fmt.Sprintf("wanted to write %d bytes to file, wrote %d", len, n)
+			msg = fmt.Sprintf("wanted to write %d bytes to file, wrote %d", length, n)
 		}
 		return msg, stillDirty
 	}
