@@ -11,6 +11,3 @@ source code, everything as simple as possible.
 This project is an attempt to refactor the C-like Go I was left with
 after finishing the project. I've created packages to separate concerns,
 and made it more idiomatic Go, rather than transliterated C.
-
-Another simple DIY text editor, this time in Ruby: [Text editor from scratch](
-https://www.destroyallsoftware.com/screencasts/catalog/text-editor-from-scratch)
