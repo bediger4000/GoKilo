@@ -82,8 +82,8 @@ func isSeparator(c byte) bool {
 // UpdateSyntax fills in the Row.Hl element with numbers that
 // constitute the color the byte with the same index in Row.Render
 // should have when displayed.
-func (syntax *Syntax) UpdateSyntax(row *row.Row, inCommentNow bool) (updateNextRow bool) {
-	row.Hl = make([]byte, row.Rsize)
+func (syntax *Syntax) UpdateSyntax(aRow *row.Row, inCommentNow bool) (updateNextRow bool) {
+	aRow.Hl = make([]byte, aRow.Rsize)
 	if syntax == nil {
 		return
 	}
@@ -95,34 +95,34 @@ func (syntax *Syntax) UpdateSyntax(row *row.Row, inCommentNow bool) (updateNextR
 	inComment := inCommentNow
 	var inString byte
 	var skip int
-	for i, c := range row.Render {
+	for i, c := range aRow.Render {
 		if skip > 0 {
 			skip--
 			continue
 		}
 		if inString == 0 && len(scs) > 0 && !inComment {
-			if bytes.HasPrefix(row.Render[i:], scs) {
-				for j := i; j < row.Rsize; j++ {
-					row.Hl[j] = HL_COMMENT
+			if bytes.HasPrefix(aRow.Render[i:], scs) {
+				for j := i; j < aRow.Rsize; j++ {
+					aRow.Hl[j] = HL_COMMENT
 				}
 				break
 			}
 		}
 		if inString == 0 && len(mcs) > 0 && len(mce) > 0 {
 			if inComment {
-				row.Hl[i] = HL_MLCOMMENT
-				if bytes.HasPrefix(row.Render[i:], mce) {
+				aRow.Hl[i] = HL_MLCOMMENT
+				if bytes.HasPrefix(aRow.Render[i:], mce) {
 					for l := i; l < i+len(mce); l++ {
-						row.Hl[l] = HL_MLCOMMENT
+						aRow.Hl[l] = HL_MLCOMMENT
 					}
 					skip = len(mce)
 					inComment = false
 					prevSep = true
 				}
 				continue
-			} else if bytes.HasPrefix(row.Render[i:], mcs) {
+			} else if bytes.HasPrefix(aRow.Render[i:], mcs) {
 				for l := i; l < i+len(mcs); l++ {
-					row.Hl[l] = HL_MLCOMMENT
+					aRow.Hl[l] = HL_MLCOMMENT
 				}
 				inComment = true
 				skip = len(mcs) - 1
@@ -130,13 +130,13 @@ func (syntax *Syntax) UpdateSyntax(row *row.Row, inCommentNow bool) (updateNextR
 		}
 		var prevHl byte = HL_NORMAL
 		if i > 0 {
-			prevHl = row.Hl[i-1]
+			prevHl = aRow.Hl[i-1]
 		}
 		if (syntax.flags & HL_HIGHLIGHT_STRINGS) == HL_HIGHLIGHT_STRINGS {
 			if inString != 0 {
-				row.Hl[i] = HL_STRING
-				if c == '\\' && i+1 < row.Rsize {
-					row.Hl[i+1] = HL_STRING
+				aRow.Hl[i] = HL_STRING
+				if c == '\\' && i+1 < aRow.Rsize {
+					aRow.Hl[i+1] = HL_STRING
 					skip = 1
 					continue
 				}
@@ -147,7 +147,7 @@ func (syntax *Syntax) UpdateSyntax(row *row.Row, inCommentNow bool) (updateNextR
 				continue
 			} else if c == '"' || c == '\'' {
 				inString = c
-				row.Hl[i] = HL_STRING
+				aRow.Hl[i] = HL_STRING
 				continue
 			}
 		}
@@ -155,7 +155,7 @@ func (syntax *Syntax) UpdateSyntax(row *row.Row, inCommentNow bool) (updateNextR
 			if unicode.IsDigit(rune(c)) &&
 				(prevSep || prevHl == HL_NUMBER) ||
 				(c == '.' && prevHl == HL_NUMBER) {
-				row.Hl[i] = HL_NUMBER
+				aRow.Hl[i] = HL_NUMBER
 				prevSep = false
 				continue
 			}
@@ -172,11 +172,11 @@ func (syntax *Syntax) UpdateSyntax(row *row.Row, inCommentNow bool) (updateNextR
 					color = HL_KEYWORD2
 				}
 				klen := len(kw)
-				if bytes.HasPrefix(row.Render[i:], kw) &&
-					(len(row.Render[i:]) == klen ||
-						isSeparator(row.Render[i+klen])) {
+				if bytes.HasPrefix(aRow.Render[i:], kw) &&
+					(len(aRow.Render[i:]) == klen ||
+						isSeparator(aRow.Render[i+klen])) {
 					for l := i; l < i+klen; l++ {
-						row.Hl[l] = color
+						aRow.Hl[l] = color
 					}
 					skip = klen - 1
 					break
@@ -190,8 +190,8 @@ func (syntax *Syntax) UpdateSyntax(row *row.Row, inCommentNow bool) (updateNextR
 		prevSep = isSeparator(c)
 	}
 
-	updateNextRow = row.HlOpenComment != inComment
-	row.HlOpenComment = inComment
+	updateNextRow = aRow.HlOpenComment != inComment
+	aRow.HlOpenComment = inComment
 	return updateNextRow
 }
 
