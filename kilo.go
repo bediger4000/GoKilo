@@ -1,12 +1,13 @@
 package main
 
 import (
-	"editor"
-	"filemgt"
 	"fmt"
 	"io"
 	"os"
-	"tty"
+
+	"GoKilo/editor"
+	"GoKilo/filemgt"
+	"GoKilo/tty"
 )
 
 func main() {

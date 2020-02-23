@@ -2,9 +2,10 @@ package highlighter
 
 import (
 	"bytes"
-	"row"
 	"strings"
 	"unicode"
+
+	"GoKilo/row"
 )
 
 // Highlight types. Each byte in Row.Render gets assigned
@@ -144,12 +145,10 @@ func (syntax *Syntax) UpdateSyntax(row *row.Row, inCommentNow bool) (updateNextR
 				}
 				prevSep = true
 				continue
-			} else {
-				if c == '"' || c == '\'' {
-					inString = c
-					row.Hl[i] = HL_STRING
-					continue
-				}
+			} else if c == '"' || c == '\'' {
+				inString = c
+				row.Hl[i] = HL_STRING
+				continue
 			}
 		}
 		if (syntax.flags & HL_HIGHLIGHT_NUMBERS) == HL_HIGHLIGHT_NUMBERS {
@@ -164,7 +163,7 @@ func (syntax *Syntax) UpdateSyntax(row *row.Row, inCommentNow bool) (updateNextR
 		if prevSep {
 			var j int
 			var skw string
-			for j, skw = range syntax.keywords[:] {
+			for j, skw = range syntax.keywords {
 				kw := []byte(skw)
 				var color byte = HL_KEYWORD1
 				idx := bytes.LastIndexByte(kw, '|')

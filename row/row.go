@@ -76,14 +76,15 @@ func (row *Row) UpdateRow() {
 
 // RowInsertChar puts byte argument c into a line, position at
 func (row *Row) RowInsertChar(at int, c byte) {
-	if at < 0 || at > row.Size {
+	switch {
+	case at < 0 || at > row.Size:
 		row.Chars = append(row.Chars, c)
-	} else if at == 0 {
+	case at == 0:
 		t := make([]byte, row.Size+1)
 		t[0] = c
 		copy(t[1:], row.Chars)
 		row.Chars = t
-	} else {
+	default:
 		row.Chars = append(
 			row.Chars[:at],
 			append(append(make([]byte, 0), c), row.Chars[at:]...)...,
