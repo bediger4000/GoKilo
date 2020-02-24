@@ -33,7 +33,7 @@ func getCursorPosition() (rows, cols int, worked bool) {
 	}
 	if n, e := fmt.Sscanf(string(buf[2:]), "%d;%d", &rows, &cols); n != 2 || e != nil {
 		if e != nil {
-			log.Printf("GetCursorPosition: fmt.Sscanf() failed: %s\n", e)
+			log.Printf("getCursorPosition: fmt.Sscanf() failed: %s\n", e)
 		}
 		if n != 2 {
 			log.Printf("getCursorPosition: got %d items, wanted 2\n", n)
